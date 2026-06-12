@@ -41,10 +41,40 @@ All 6 tests pass (`npm run test`).
 
 ## D4 — Prisma enums on SQLite
 - Used `enum Role` and `enum InvoiceStatus`. Current Prisma supports enums on SQLite (stored as TEXT).
-- Could not run `prisma validate` in the build sandbox (Prisma engine binaries are network-blocked here). It will validate/migrate normally on your machine via `npx prisma migrate dev`.
-- If your Prisma version rejects enums on SQLite, change both enums to `String` — no other code depends on the native enum type.
+- `npx prisma migrate dev --name init` ran successfully (Prisma 6.19) — enums validated fine.
+
+## D5 — bcryptjs instead of bcrypt
+- Spec §1 said `bcrypt`. Used **bcryptjs** (pure-JS) instead: no native compilation, works on any machine
+  with zero build tooling — fits the "runs locally with zero external accounts" goal. API is compatible.
+
+## D6 — Next.js 16 renamed middleware → proxy
+- create-next-app installed Next 16, where `middleware.ts` is now `proxy.ts` (same functionality; Next warns
+  if you use the old name). Auth gating lives in `proxy.ts` via `withAuth({ pages: { signIn: "/login" } })`.
+- Also note Next 16: route `params`, `cookies()`, `headers()` are async (awaited everywhere).
+
+## D7 — Who issues the WHT certificate (50 ทวิ)
+- In a logistics payment the **customer pays us and withholds tax**, so on the 50 ทวิ the customer is the
+  withholder (ผู้จ่ายเงิน/ผู้มีหน้าที่หัก) and **our company is the payee** (ผู้ถูกหักภาษี). Sendo pre-fills the
+  form from the invoice so it's ready for the customer to sign. If your real flow has the company as the
+  payer (e.g. paying subcontractors), the parties on the cert would swap — flag for Phase 2.
+
+## D8 — PDF font
+- Bundled **Sarabun** (the open Thai-government document font, successor to TH Sarabun) under `public/fonts`
+  so PDFs render Thai correctly and **offline**. This also aligns with the ETDA e-Tax reference (THSarabun)
+  for the Phase 3 e-Tax work.
+
+## D9 — Standalone git repo
+- `~/Documents` (actually `~`) was already a giant catch-all git repo. Ran `git init` inside `sendo/` so the
+  project is its own repository, pushed to a private GitHub repo `Tasachii/sendo`.
 
 ---
 
-## Open / next
-- Phase 1 remaining: auth + tenant guard, Customer/Service CRUD, create-invoice screen (live totals), poka-yoke validation on issue, invoice + WHT-certificate PDFs, invoice list.
+## Phase 1 — DONE ✅
+Auth + tenant guard, Customer/Service CRUD, create-invoice with live totals (server recomputes),
+poka-yoke 8-field validation on issue, invoice + WHT-cert PDFs, invoice list + statuses, tax-settings editor.
+`npm run test` = 14 green (tax 6, tenant 3, poka-yoke 5). `npm run build` passes. PDFs render (verified).
+
+## Open / next (Phase 2)
+- Weight/distance pricing modes on line items; copy-invoice; multi-shipment trackingNo.
+- Dashboard (month total / unpaid / overdue) + auto-OVERDUE past dueDate.
+- e-Withholding 1% reduced-rate note — confirm current rates with the accountant before go-live.
