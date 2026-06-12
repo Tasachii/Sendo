@@ -1,0 +1,125 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+enum Role {
+  OWNER
+  STAFF
+  VIEWER
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+}
+
+model Company {
+  id              String   @id @default(cuid())
+  name            String
+  taxId           String
+  address         String
+  branch          String   @default("สำนักงานใหญ่")
+  isVatRegistered Boolean  @default(true)
+  createdAt       DateTime @default(now())
+
+  users       User[]
+  customers   Customer[]
+  services    Service[]
+  taxSettings TaxSetting[]
+  invoices    Invoice[]
+}
+
+model User {
+  id           String @id @default(cuid())
+  companyId    String
+  email        String @unique
+  passwordHash String
+  name         String
+  role         Role   @default(STAFF)
+
+  company         Company   @relation(fields: [companyId], references: [id])
+  createdInvoices Invoice[] @relation("InvoiceCreatedBy")
+}
+
+model Customer {
+  id              String  @id @default(cuid())
+  companyId       String
+  name            String
+  taxId           String?
+  address         String?
+  branch          String  @default("สำนักงานใหญ่")
+  contactPhone    String?
+  contactEmail    String?
+  isVatRegistered Boolean @default(false)
+
+  company  Company   @relation(fields: [companyId], references: [id])
+  invoices Invoice[]
+}
+
+model Service {
+  id                     String @id @default(cuid())
+  companyId              String
+  name                   String
+  defaultJobType         String
+  defaultUnitPriceSatang Int    @default(0)
+
+  company Company @relation(fields: [companyId], references: [id])
+}
+
+model TaxSetting {
+  id            String  @id @default(cuid())
+  companyId     String
+  jobType       String
+  label         String
+  vatRate       Float
+  whtRate       Float
+  vatApplicable Boolean
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@unique([companyId, jobType])
+}
+
+model Invoice {
+  id             String        @id @default(cuid())
+  companyId      String
+  number         String
+  customerId     String
+  issueDate      DateTime      @default(now())
+  dueDate        DateTime?
+  status         InvoiceStatus @default(DRAFT)
+  jobType        String
+  subtotalSatang Int
+  vatSatang      Int
+  whtSatang      Int
+  netSatang      Int
+  trackingNo     String?
+  note           String?
+  createdById    String
+  createdAt      DateTime      @default(now())
+
+  company   Company       @relation(fields: [companyId], references: [id])
+  customer  Customer      @relation(fields: [customerId], references: [id])
+  createdBy User          @relation("InvoiceCreatedBy", fields: [createdById], references: [id])
+  items     InvoiceItem[]
+
+  @@unique([companyId, number])
+}
+
+model InvoiceItem {
+  id              String @id @default(cuid())
+  invoiceId       String
+  description     String
+  qty             Float
+  unitPriceSatang Int
+  lineTotalSatang Int
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+}
