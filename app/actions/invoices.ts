@@ -6,6 +6,8 @@ import { db, requireWriter } from "@/lib/tenant";
 import { invoiceDraftSchema } from "@/lib/validation";
 import { computeTotals, nextInvoiceNumber } from "@/lib/invoice";
 import { validateForIssue } from "@/lib/poka-yoke";
+import { logAudit } from "@/lib/audit";
+import { formatBaht } from "@/lib/money";
 
 export type InvoiceActionResult =
   | { ok: true; id: string }
@@ -56,6 +58,7 @@ export async function createInvoice(raw: unknown): Promise<InvoiceActionResult> 
           },
         });
       });
+      await logAudit(ctx, "INVOICE_CREATE", "Invoice", created.id, `สร้างฉบับร่าง ${created.number} · สุทธิ ${formatBaht(totals.netSatang)} บาท`);
       revalidatePath("/invoices");
       return { ok: true, id: created.id };
     } catch (e) {
@@ -89,6 +92,7 @@ export async function issueInvoice(id: string): Promise<InvoiceActionResult> {
     where: { id, companyId: ctx.companyId, status: "DRAFT" },
     data: { status: "SENT" },
   });
+  await logAudit(ctx, "INVOICE_ISSUE", "Invoice", id, `ออกใบกำกับภาษี ${invoice.number}`);
   revalidatePath("/invoices");
   revalidatePath(`/invoices/${id}`);
   return { ok: true, id };
@@ -101,6 +105,7 @@ export async function setInvoiceStatus(
   const ctx = await requireWriter();
   const res = await db.invoice.updateMany({ where: { id, companyId: ctx.companyId }, data: { status } });
   if (res.count === 0) return { ok: false, error: "ไม่พบใบแจ้งหนี้" };
+  await logAudit(ctx, "INVOICE_STATUS", "Invoice", id, `เปลี่ยนสถานะเป็น ${status}`);
   revalidatePath("/invoices");
   revalidatePath(`/invoices/${id}`);
   return { ok: true, id };
@@ -108,7 +113,9 @@ export async function setInvoiceStatus(
 
 export async function deleteInvoice(id: string): Promise<InvoiceActionResult> {
   const ctx = await requireWriter();
+  const target = await db.invoice.findFirst({ where: { id, companyId: ctx.companyId }, select: { number: true } });
   await db.invoice.deleteMany({ where: { id, companyId: ctx.companyId } });
+  await logAudit(ctx, "INVOICE_DELETE", "Invoice", id, target ? `ลบใบแจ้งหนี้ ${target.number}` : undefined);
   revalidatePath("/invoices");
   return { ok: true, id };
 }

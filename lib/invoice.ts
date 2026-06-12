@@ -1,4 +1,4 @@
-import type { Prisma, PrismaClient } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { calcTax } from "@/lib/tax";
 import { bahtToSatang } from "@/lib/money";
 
@@ -52,22 +52,19 @@ export function computeTotals(
 }
 
 /**
- * Race-safe per-company sequential number: INV-{YYYY}-{0001}.
- * Runs inside a transaction; the @@unique([companyId, number]) constraint is the
- * final guard — a loser in a race fails the unique check and the caller retries.
+ * Race-safe, gap-stable per-company sequential number: INV-{YYYY}-{0001}.
+ * Uses an atomic upsert+increment on InvoiceCounter inside the caller's transaction,
+ * so concurrent issues can't collide and deleting an invoice never re-issues a number.
  */
 export async function nextInvoiceNumber(
-  tx: Prisma.TransactionClient | PrismaClient,
+  tx: Prisma.TransactionClient,
   companyId: string,
   year = new Date().getFullYear()
 ): Promise<string> {
-  const prefix = `INV-${year}-`;
-  const latest = await tx.invoice.findFirst({
-    where: { companyId, number: { startsWith: prefix } },
-    orderBy: { number: "desc" },
-    select: { number: true },
+  const counter = await tx.invoiceCounter.upsert({
+    where: { companyId_year: { companyId, year } },
+    create: { companyId, year, lastSeq: 1 },
+    update: { lastSeq: { increment: 1 } },
   });
-  const lastSeq = latest ? parseInt(latest.number.slice(prefix.length), 10) : 0;
-  const seq = (Number.isFinite(lastSeq) ? lastSeq : 0) + 1;
-  return `${prefix}${String(seq).padStart(4, "0")}`;
+  return `INV-${year}-${String(counter.lastSeq).padStart(4, "0")}`;
 }

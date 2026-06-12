@@ -34,6 +34,36 @@ model Company {
   services    Service[]
   taxSettings TaxSetting[]
   invoices    Invoice[]
+  counters    InvoiceCounter[]
+  auditLogs   AuditLog[]
+}
+
+// Atomic per-company-per-year sequence for invoice numbers (race-safe, gap-free).
+model InvoiceCounter {
+  companyId String
+  year      Int
+  lastSeq   Int    @default(0)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@id([companyId, year])
+}
+
+// Who did what — append-only audit trail, scoped per tenant.
+model AuditLog {
+  id        String   @id @default(cuid())
+  companyId String
+  userId    String
+  userName  String
+  action    String // e.g. INVOICE_CREATE, INVOICE_ISSUE, INVOICE_STATUS, INVOICE_DELETE
+  entity    String // e.g. Invoice
+  entityId  String
+  detail    String? // human-readable Thai summary
+  createdAt DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, createdAt])
 }
 
 model User {

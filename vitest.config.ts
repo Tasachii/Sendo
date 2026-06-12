@@ -1,8 +1,12 @@
 import { defineConfig } from "vitest/config";
+import { fileURLToPath } from "node:url";
 
 export default defineConfig({
+  resolve: {
+    // mirror tsconfig paths: "@/*" -> project root
+    alias: { "@": fileURLToPath(new URL("./", import.meta.url)) },
+  },
   test: {
-    // tax engine is a pure function — plain node env is enough, no DOM needed
     environment: "node",
     include: ["tests/**/*.test.ts"],
   },
