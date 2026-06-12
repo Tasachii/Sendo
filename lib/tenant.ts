@@ -19,10 +19,15 @@ export type SessionContext = {
 
 export async function getSessionContext(): Promise<SessionContext | null> {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return null;
-  const u = session.user as unknown as SessionContext;
-  if (!u.companyId) return null;
-  return u;
+  const u = session?.user;
+  if (!u?.companyId) return null;
+  return {
+    userId: u.id,
+    companyId: u.companyId,
+    role: u.role,
+    name: u.name ?? "",
+    email: u.email ?? "",
+  };
 }
 
 /** Throws if not authenticated — use at the top of every protected action. */
