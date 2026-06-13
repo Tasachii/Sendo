@@ -27,13 +27,13 @@ export function TaxSettingsManager({ initial, canWrite }: { initial: Setting[]; 
     router.refresh();
   }
 
-  const inp = "w-20 rounded border border-slate-300 px-2 py-1 text-right outline-none focus:border-accent";
+  const inp = "w-20 rounded border border-line px-2 py-1 text-right outline-none focus:border-accent";
 
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold">ตั้งค่าภาษี</h1>
-        <p className="text-sm text-slate-500">อัตรา VAT และภาษีหัก ณ ที่จ่าย แยกตามประเภทงาน</p>
+        <p className="text-sm text-muted">อัตรา VAT และภาษีหัก ณ ที่จ่าย แยกตามประเภทงาน</p>
       </div>
 
       <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
@@ -41,9 +41,9 @@ export function TaxSettingsManager({ initial, canWrite }: { initial: Setting[]; 
         ระบบเก็บอัตราไว้ที่นี่เพื่อให้แก้ได้โดยไม่ต้องแก้โค้ด
       </div>
 
-      <div className="overflow-x-auto rounded-xl bg-white ring-1 ring-slate-200">
+      <div className="overflow-x-auto rounded-xl bg-surface ring-1 ring-line">
         <table className="w-full text-sm">
-          <thead className="border-b border-slate-200 text-left text-slate-500">
+          <thead className="border-b border-line text-left text-muted">
             <tr>
               <th className="px-4 py-3 font-medium">ประเภทงาน</th>
               <th className="px-4 py-3 font-medium">คิด VAT</th>
@@ -54,7 +54,7 @@ export function TaxSettingsManager({ initial, canWrite }: { initial: Setting[]; 
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.jobType} className="border-b border-slate-100 last:border-0">
+              <tr key={r.jobType} className="border-b border-line last:border-0">
                 <td className="px-4 py-3">{r.label}</td>
                 <td className="px-4 py-3">
                   <input type="checkbox" disabled={!canWrite} checked={r.vatApplicable}

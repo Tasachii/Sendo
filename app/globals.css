@@ -1,28 +1,107 @@
 @import "tailwindcss";
 
-/* Sendo — calm, minimal, function-first. One quiet accent: indigo / 藍-ai blue. */
+/*
+  Sendo design system — 和 (wa): calm, minimal, function-first.
+  Washi-paper ground, sumi-ink text, hairline rules, one quiet 藍 (ai) indigo accent.
+  Negative space and restraint over decoration.
+*/
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
-  --accent: #4f46e5; /* indigo-600 */
+  --paper: #faf8f3;      /* washi background */
+  --surface: #ffffff;    /* cards / sheets */
+  --ink: #21201c;        /* sumi text */
+  --ink-soft: #6c685f;   /* secondary text */
+  --ink-faint: #9a958a;  /* tertiary / placeholders */
+  --line: #e8e3d8;       /* hairline borders */
+  --line-strong: #d8d2c4;
+  --accent: #3f4d7a;     /* 藍 ai indigo */
+  --accent-ink: #2c3760; /* darker accent for hover */
+  --accent-wash: #eef0f6;/* faint accent tint */
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-muted: var(--ink-soft);
+  --color-faint: var(--ink-faint);
+  --color-line: var(--line);
   --color-accent: var(--accent);
+  --color-accent-wash: var(--accent-wash);
   --font-sans: var(--font-noto-thai), ui-sans-serif, system-ui, sans-serif;
 }
 
+html { background: var(--paper); }
+
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--paper);
+  color: var(--ink);
   font-family: var(--font-noto-thai), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-/* Read-only calculated fields (poka-yoke §6): visually distinct, not editable. */
+::selection { background: var(--accent-wash); }
+
+/* Headings: slightly tightened, calm weight */
+h1, h2, h3 { letter-spacing: -0.01em; }
+
+/* ---- component classes (used across the app) ---- */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.hairline { border-color: var(--line); }
+
+.input {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  color: var(--ink);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.input::placeholder { color: var(--ink-faint); }
+.input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-wash); }
+.input:disabled { background: #f4f1ea; color: var(--ink-soft); }
+
+.field-label {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border-radius: 8px;
+  padding: 0.55rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, opacity 0.15s;
+  cursor: pointer;
+}
+.btn:disabled { opacity: 0.5; cursor: default; }
+
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover:not(:disabled) { background: var(--accent-ink); }
+
+.btn-ghost { background: var(--surface); color: var(--ink); border: 1px solid var(--line-strong); }
+.btn-ghost:hover:not(:disabled) { background: #f4f1ea; }
+
+.btn-quiet { background: transparent; color: var(--ink-soft); }
+.btn-quiet:hover:not(:disabled) { background: #f1ede4; color: var(--ink); }
+
+/* Read-only calculated fields (poka-yoke §6): distinct, clearly not editable */
 .calc-field {
-  background-color: #f1f5f9; /* slate-100 */
-  color: #334155; /* slate-700 */
-  border: 1px solid #e2e8f0;
+  background-color: #f4f1ea;
+  color: var(--ink);
+  border: 1px solid var(--line);
 }

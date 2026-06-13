@@ -15,8 +15,8 @@ type Customer = {
   isVatRegistered: boolean;
 };
 
-const field = "w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-accent focus:ring-1 focus:ring-accent";
-const label = "mb-1 block text-sm text-slate-600";
+const field = "w-full rounded-lg border border-line px-3 py-2 outline-none focus:border-accent focus:ring-1 focus:ring-accent";
+const label = "mb-1 block text-sm text-muted";
 
 export function CustomersManager({ initial, canWrite }: { initial: Customer[]; canWrite: boolean }) {
   const router = useRouter();
@@ -60,7 +60,7 @@ export function CustomersManager({ initial, canWrite }: { initial: Customer[]; c
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">ลูกค้า</h1>
-          <p className="text-sm text-slate-500">ข้อมูลลูกค้าใช้ดึงอัตโนมัติตอนออกบิล — กรอกครั้งเดียวใช้ตลอด</p>
+          <p className="text-sm text-muted">ข้อมูลลูกค้าใช้ดึงอัตโนมัติตอนออกบิล — กรอกครั้งเดียวใช้ตลอด</p>
         </div>
         {canWrite && (
           <button onClick={openNew} className="rounded-lg bg-accent px-4 py-2 font-medium text-white hover:opacity-90">
@@ -69,9 +69,9 @@ export function CustomersManager({ initial, canWrite }: { initial: Customer[]; c
         )}
       </div>
 
-      <div className="overflow-x-auto rounded-xl bg-white ring-1 ring-slate-200">
+      <div className="overflow-x-auto rounded-xl bg-surface ring-1 ring-line">
         <table className="w-full text-sm">
-          <thead className="border-b border-slate-200 text-left text-slate-500">
+          <thead className="border-b border-line text-left text-muted">
             <tr>
               <th className="px-4 py-3 font-medium">ชื่อ</th>
               <th className="px-4 py-3 font-medium">เลขผู้เสียภาษี</th>
@@ -82,19 +82,19 @@ export function CustomersManager({ initial, canWrite }: { initial: Customer[]; c
           </thead>
           <tbody>
             {initial.length === 0 && (
-              <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">ยังไม่มีลูกค้า</td></tr>
+              <tr><td colSpan={5} className="px-4 py-8 text-center text-faint">ยังไม่มีลูกค้า</td></tr>
             )}
             {initial.map((c) => (
-              <tr key={c.id} className="border-b border-slate-100 last:border-0">
+              <tr key={c.id} className="border-b border-line last:border-0">
                 <td className="px-4 py-3">
                   <div className="font-medium">{c.name}</div>
-                  <div className="text-xs text-slate-400">{c.branch}</div>
+                  <div className="text-xs text-faint">{c.branch}</div>
                 </td>
-                <td className="px-4 py-3 text-slate-600">{c.taxId || "—"}</td>
+                <td className="px-4 py-3 text-muted">{c.taxId || "—"}</td>
                 <td className="px-4 py-3">
-                  {c.isVatRegistered ? <span className="rounded bg-accent/10 px-2 py-0.5 text-xs text-accent">จด VAT</span> : <span className="text-slate-400">—</span>}
+                  {c.isVatRegistered ? <span className="rounded bg-accent/10 px-2 py-0.5 text-xs text-accent">จด VAT</span> : <span className="text-faint">—</span>}
                 </td>
-                <td className="px-4 py-3 text-slate-600">{c.contactPhone || c.contactEmail || "—"}</td>
+                <td className="px-4 py-3 text-muted">{c.contactPhone || c.contactEmail || "—"}</td>
                 {canWrite && (
                   <td className="px-4 py-3 text-right whitespace-nowrap">
                     <button onClick={() => openEdit(c)} className="text-accent hover:underline">แก้ไข</button>
@@ -110,7 +110,7 @@ export function CustomersManager({ initial, canWrite }: { initial: Customer[]; c
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={() => setShowForm(false)}>
           <form onClick={(e) => e.stopPropagation()} onSubmit={onSubmit}
-            className="w-full max-w-lg space-y-3 rounded-xl bg-white p-6 shadow-xl">
+            className="w-full max-w-lg space-y-3 rounded-xl bg-surface p-6 shadow-xl">
             <h2 className="text-lg font-semibold">{editing ? "แก้ไขลูกค้า" : "เพิ่มลูกค้า"}</h2>
             <div>
               <label className={label}>ชื่อลูกค้า *</label>
@@ -146,7 +146,7 @@ export function CustomersManager({ initial, canWrite }: { initial: Customer[]; c
             </label>
             {error && <p className="text-sm text-red-600">{error}</p>}
             <div className="flex justify-end gap-2 pt-2">
-              <button type="button" onClick={() => setShowForm(false)} className="rounded-lg px-4 py-2 ring-1 ring-slate-300 hover:bg-slate-50">ยกเลิก</button>
+              <button type="button" onClick={() => setShowForm(false)} className="rounded-lg px-4 py-2 ring-1 ring-line hover:bg-paper">ยกเลิก</button>
               <button type="submit" disabled={busy} className="rounded-lg bg-accent px-4 py-2 font-medium text-white hover:opacity-90 disabled:opacity-50">
                 {busy ? "กำลังบันทึก…" : "บันทึก"}
               </button>

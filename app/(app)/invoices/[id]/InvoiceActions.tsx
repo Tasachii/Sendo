@@ -50,7 +50,7 @@ export function InvoiceActions({ id, status, hasWht, canWrite }: { id: string; s
               className={`${btn} bg-accent text-white hover:opacity-90`}>ดาวน์โหลดใบกำกับภาษี (PDF)</a>
             {hasWht && (
               <a href={`/api/invoices/${id}/wht`} target="_blank" rel="noopener noreferrer"
-                className={`${btn} bg-white ring-1 ring-slate-300 hover:bg-slate-50`}>ใบหัก ณ ที่จ่าย (50 ทวิ)</a>
+                className={`${btn} bg-surface ring-1 ring-line hover:bg-paper`}>ใบหัก ณ ที่จ่าย (50 ทวิ)</a>
             )}
           </>
         )}

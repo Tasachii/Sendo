@@ -11,8 +11,8 @@ type Service = { id: string; name: string; defaultJobType: string; defaultUnitPr
 type TaxSetting = { jobType: string; label: string; vatRate: number; whtRate: number; vatApplicable: boolean };
 type Row = { description: string; qty: string; unitPriceBaht: string };
 
-const field = "w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-accent focus:ring-1 focus:ring-accent";
-const label = "mb-1 block text-sm text-slate-600";
+const field = "w-full rounded-lg border border-line px-3 py-2 outline-none focus:border-accent focus:ring-1 focus:ring-accent";
+const label = "mb-1 block text-sm text-muted";
 const today = () => new Date().toISOString().slice(0, 10);
 
 export function InvoiceForm({ customers, services, taxSettings }: { customers: Customer[]; services: Service[]; taxSettings: TaxSetting[] }) {
@@ -83,7 +83,7 @@ export function InvoiceForm({ customers, services, taxSettings }: { customers: C
         <h1 className="text-2xl font-bold">สร้างใบแจ้งหนี้</h1>
       </div>
 
-      <div className="grid gap-4 rounded-xl bg-white p-5 ring-1 ring-slate-200 sm:grid-cols-2">
+      <div className="grid gap-4 rounded-xl bg-surface p-5 ring-1 ring-line sm:grid-cols-2">
         <div>
           <label className={label}>ลูกค้า *</label>
           <select value={customerId} onChange={(e) => setCustomerId(e.target.value)} className={field}>
@@ -103,7 +103,7 @@ export function InvoiceForm({ customers, services, taxSettings }: { customers: C
             {taxSettings.map((t) => <option key={t.jobType} value={t.jobType}>{t.label}</option>)}
           </select>
           {setting && (
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-muted">
               VAT {setting.vatApplicable ? `${(setting.vatRate * 100).toFixed(0)}%` : "ยกเว้น"} · หัก ณ ที่จ่าย {(setting.whtRate * 100).toFixed(0)}%
             </p>
           )}
@@ -127,7 +127,7 @@ export function InvoiceForm({ customers, services, taxSettings }: { customers: C
       </div>
 
       {/* line items */}
-      <div className="rounded-xl bg-white p-5 ring-1 ring-slate-200">
+      <div className="rounded-xl bg-surface p-5 ring-1 ring-line">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-semibold">รายการ</h2>
           <button type="button" onClick={addRow} className="text-sm font-medium text-accent hover:underline">+ เพิ่มรายการ</button>
@@ -140,7 +140,7 @@ export function InvoiceForm({ customers, services, taxSettings }: { customers: C
                 <div className="col-span-12 sm:col-span-5">
                   <input placeholder="รายละเอียด" value={r.description} onChange={(e) => updateRow(i, { description: e.target.value })} className={field} />
                   {services.length > 0 && (
-                    <select onChange={(e) => { pickService(i, e.target.value); e.target.value = ""; }} defaultValue="" className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-500">
+                    <select onChange={(e) => { pickService(i, e.target.value); e.target.value = ""; }} defaultValue="" className="mt-1 w-full rounded-lg border border-line px-2 py-1 text-xs text-muted">
                       <option value="" disabled>เลือกจากรายการบริการ…</option>
                       {services.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
@@ -152,11 +152,11 @@ export function InvoiceForm({ customers, services, taxSettings }: { customers: C
                 <div className="col-span-5 sm:col-span-3">
                   <input type="number" step="0.01" min="0" placeholder="ราคา/หน่วย" value={r.unitPriceBaht} onChange={(e) => updateRow(i, { unitPriceBaht: e.target.value })} className={field} />
                 </div>
-                <div className="col-span-3 sm:col-span-1 flex items-center justify-end text-sm tabular-nums text-slate-600">
+                <div className="col-span-3 sm:col-span-1 flex items-center justify-end text-sm tabular-nums text-muted">
                   {formatBaht(lineSatang)}
                 </div>
                 <div className="col-span-1 flex items-center justify-end">
-                  <button type="button" onClick={() => removeRow(i)} className="text-slate-400 hover:text-red-500">✕</button>
+                  <button type="button" onClick={() => removeRow(i)} className="text-faint hover:text-red-500">✕</button>
                 </div>
               </div>
             );
@@ -165,22 +165,22 @@ export function InvoiceForm({ customers, services, taxSettings }: { customers: C
       </div>
 
       {/* totals — READ ONLY (poka-yoke §6) */}
-      <div className="rounded-xl bg-white p-5 ring-1 ring-slate-200">
+      <div className="rounded-xl bg-surface p-5 ring-1 ring-line">
         <div className="ml-auto max-w-sm space-y-2">
           <Row3 label="ยอดก่อนภาษี (Subtotal)" value={formatBaht(totals.subtotalSatang)} />
           <Row3 label={`VAT ${setting?.vatApplicable ? `(${(setting.vatRate * 100).toFixed(0)}%)` : "(ยกเว้น)"}`} value={`+ ${formatBaht(totals.vatSatang)}`} />
           <Row3 label={`หัก ณ ที่จ่าย (${((setting?.whtRate ?? 0) * 100).toFixed(0)}%)`} value={`- ${formatBaht(totals.whtSatang)}`} />
-          <div className="flex items-center justify-between border-t border-slate-200 pt-2">
+          <div className="flex items-center justify-between border-t border-line pt-2">
             <span className="font-semibold">ยอดชำระสุทธิ (Net)</span>
             <span className="text-xl font-bold text-accent tabular-nums">{formatBaht(totals.netSatang)} ฿</span>
           </div>
-          <p className="text-right text-xs text-slate-400">ระบบคำนวณให้อัตโนมัติ — แก้ไขไม่ได้</p>
+          <p className="text-right text-xs text-faint">ระบบคำนวณให้อัตโนมัติ — แก้ไขไม่ได้</p>
         </div>
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
       <div className="flex justify-end gap-2">
-        <button type="button" onClick={() => router.push("/invoices")} className="rounded-lg px-4 py-2.5 ring-1 ring-slate-300 hover:bg-slate-50">ยกเลิก</button>
+        <button type="button" onClick={() => router.push("/invoices")} className="rounded-lg px-4 py-2.5 ring-1 ring-line hover:bg-paper">ยกเลิก</button>
         <button type="submit" disabled={busy} className="rounded-lg bg-accent px-5 py-2.5 font-medium text-white hover:opacity-90 disabled:opacity-50">
           {busy ? "กำลังบันทึก…" : "บันทึกฉบับร่าง"}
         </button>
@@ -192,7 +192,7 @@ export function InvoiceForm({ customers, services, taxSettings }: { customers: C
 function Row3({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between text-sm">
-      <span className="text-slate-500">{label}</span>
+      <span className="text-muted">{label}</span>
       <span className="calc-field rounded px-2 py-0.5 tabular-nums">{value}</span>
     </div>
   );

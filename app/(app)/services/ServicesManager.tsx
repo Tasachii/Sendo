@@ -8,8 +8,8 @@ import { formatBaht } from "@/lib/money";
 type Service = { id: string; name: string; defaultJobType: string; defaultUnitPriceSatang: number };
 type JobType = { jobType: string; label: string };
 
-const field = "w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-accent focus:ring-1 focus:ring-accent";
-const label = "mb-1 block text-sm text-slate-600";
+const field = "w-full rounded-lg border border-line px-3 py-2 outline-none focus:border-accent focus:ring-1 focus:ring-accent";
+const label = "mb-1 block text-sm text-muted";
 
 export function ServicesManager({ initial, jobTypes, canWrite }: { initial: Service[]; jobTypes: JobType[]; canWrite: boolean }) {
   const router = useRouter();
@@ -44,7 +44,7 @@ export function ServicesManager({ initial, jobTypes, canWrite }: { initial: Serv
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">รายการบริการ</h1>
-          <p className="text-sm text-slate-500">รายการที่ใช้บ่อย เลือกตอนออกบิลได้เลย ไม่ต้องพิมพ์ใหม่</p>
+          <p className="text-sm text-muted">รายการที่ใช้บ่อย เลือกตอนออกบิลได้เลย ไม่ต้องพิมพ์ใหม่</p>
         </div>
         {canWrite && (
           <button onClick={() => { setEditing(null); setError(""); setShowForm(true); }}
@@ -52,9 +52,9 @@ export function ServicesManager({ initial, jobTypes, canWrite }: { initial: Serv
         )}
       </div>
 
-      <div className="overflow-x-auto rounded-xl bg-white ring-1 ring-slate-200">
+      <div className="overflow-x-auto rounded-xl bg-surface ring-1 ring-line">
         <table className="w-full text-sm">
-          <thead className="border-b border-slate-200 text-left text-slate-500">
+          <thead className="border-b border-line text-left text-muted">
             <tr>
               <th className="px-4 py-3 font-medium">ชื่อรายการ</th>
               <th className="px-4 py-3 font-medium">ประเภทงาน</th>
@@ -63,11 +63,11 @@ export function ServicesManager({ initial, jobTypes, canWrite }: { initial: Serv
             </tr>
           </thead>
           <tbody>
-            {initial.length === 0 && <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">ยังไม่มีรายการ</td></tr>}
+            {initial.length === 0 && <tr><td colSpan={4} className="px-4 py-8 text-center text-faint">ยังไม่มีรายการ</td></tr>}
             {initial.map((s) => (
-              <tr key={s.id} className="border-b border-slate-100 last:border-0">
+              <tr key={s.id} className="border-b border-line last:border-0">
                 <td className="px-4 py-3 font-medium">{s.name}</td>
-                <td className="px-4 py-3 text-slate-600">{labelFor(s.defaultJobType)}</td>
+                <td className="px-4 py-3 text-muted">{labelFor(s.defaultJobType)}</td>
                 <td className="px-4 py-3 text-right tabular-nums">{formatBaht(s.defaultUnitPriceSatang)}</td>
                 {canWrite && (
                   <td className="px-4 py-3 text-right whitespace-nowrap">
@@ -83,7 +83,7 @@ export function ServicesManager({ initial, jobTypes, canWrite }: { initial: Serv
 
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={() => setShowForm(false)}>
-          <form onClick={(e) => e.stopPropagation()} onSubmit={onSubmit} className="w-full max-w-md space-y-3 rounded-xl bg-white p-6 shadow-xl">
+          <form onClick={(e) => e.stopPropagation()} onSubmit={onSubmit} className="w-full max-w-md space-y-3 rounded-xl bg-surface p-6 shadow-xl">
             <h2 className="text-lg font-semibold">{editing ? "แก้ไขรายการ" : "เพิ่มรายการ"}</h2>
             <div>
               <label className={label}>ชื่อรายการ *</label>
@@ -103,7 +103,7 @@ export function ServicesManager({ initial, jobTypes, canWrite }: { initial: Serv
             </div>
             {error && <p className="text-sm text-red-600">{error}</p>}
             <div className="flex justify-end gap-2 pt-2">
-              <button type="button" onClick={() => setShowForm(false)} className="rounded-lg px-4 py-2 ring-1 ring-slate-300 hover:bg-slate-50">ยกเลิก</button>
+              <button type="button" onClick={() => setShowForm(false)} className="rounded-lg px-4 py-2 ring-1 ring-line hover:bg-paper">ยกเลิก</button>
               <button type="submit" disabled={busy} className="rounded-lg bg-accent px-4 py-2 font-medium text-white hover:opacity-90 disabled:opacity-50">
                 {busy ? "กำลังบันทึก…" : "บันทึก"}
               </button>

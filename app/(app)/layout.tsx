@@ -15,10 +15,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-6">
-            <span className="text-xl font-bold text-accent">Sendo</span>
+      <header className="sticky top-0 z-40 border-b border-line bg-paper/85 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3.5">
+          <div className="flex items-center gap-7">
+            <span className="flex items-baseline gap-1.5">
+              <span className="text-xl font-semibold tracking-tight text-ink">Sendo</span>
+              <span className="text-xs text-faint">センド</span>
+            </span>
             <nav className="hidden items-center gap-1 sm:flex">
               <NavLink href="/dashboard">หน้าหลัก</NavLink>
               <NavLink href="/invoices">ใบแจ้งหนี้</NavLink>
@@ -30,13 +33,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <div className="flex items-center gap-3">
             <div className="hidden text-right sm:block">
               <p className="text-sm font-medium leading-tight">{ctx.name}</p>
-              <p className="text-xs leading-tight text-slate-400">{company?.name}</p>
+              <p className="text-xs leading-tight text-faint">{company?.name}</p>
             </div>
             <SignOutButton />
           </div>
         </div>
         {/* mobile nav */}
-        <nav className="flex gap-1 overflow-x-auto border-t border-slate-100 px-4 py-2 sm:hidden">
+        <nav className="flex gap-1 overflow-x-auto border-t border-line px-4 py-2 sm:hidden">
           <NavLink href="/dashboard">หน้าหลัก</NavLink>
           <NavLink href="/invoices">ใบแจ้งหนี้</NavLink>
           <NavLink href="/customers">ลูกค้า</NavLink>

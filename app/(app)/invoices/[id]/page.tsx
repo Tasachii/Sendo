@@ -18,7 +18,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <Link href="/invoices" className="text-sm text-slate-400 hover:underline">← กลับ</Link>
+          <Link href="/invoices" className="text-sm text-faint hover:underline">← กลับ</Link>
           <h1 className="text-2xl font-bold">{inv.number}</h1>
           <div className="mt-1"><StatusBadge status={inv.status} /></div>
         </div>
@@ -33,19 +33,19 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
       <div className="grid gap-4 sm:grid-cols-2">
         <Box title="ผู้ขาย (บริษัทคุณ)">
           <p className="font-medium">{inv.company.name}</p>
-          <p className="text-slate-600">เลขภาษี {inv.company.taxId} · {inv.company.branch}</p>
-          <p className="text-slate-600">{inv.company.address}</p>
+          <p className="text-muted">เลขภาษี {inv.company.taxId} · {inv.company.branch}</p>
+          <p className="text-muted">{inv.company.address}</p>
         </Box>
         <Box title="ผู้ซื้อ (ลูกค้า)">
           <p className="font-medium">{inv.customer.name}</p>
-          <p className="text-slate-600">เลขภาษี {inv.customer.taxId || "—"} · {inv.customer.branch}</p>
-          <p className="text-slate-600">{inv.customer.address || "— ยังไม่มีที่อยู่ —"}</p>
+          <p className="text-muted">เลขภาษี {inv.customer.taxId || "—"} · {inv.customer.branch}</p>
+          <p className="text-muted">{inv.customer.address || "— ยังไม่มีที่อยู่ —"}</p>
         </Box>
       </div>
 
-      <div className="rounded-xl bg-white ring-1 ring-slate-200">
+      <div className="rounded-xl bg-surface ring-1 ring-line">
         <table className="w-full text-sm">
-          <thead className="border-b border-slate-200 text-left text-slate-500">
+          <thead className="border-b border-line text-left text-muted">
             <tr>
               <th className="px-4 py-3 font-medium">รายการ</th>
               <th className="px-4 py-3 text-right font-medium">จำนวน</th>
@@ -55,7 +55,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
           </thead>
           <tbody>
             {inv.items.map((it) => (
-              <tr key={it.id} className="border-b border-slate-100 last:border-0">
+              <tr key={it.id} className="border-b border-line last:border-0">
                 <td className="px-4 py-3">{it.description}</td>
                 <td className="px-4 py-3 text-right tabular-nums">{it.qty}</td>
                 <td className="px-4 py-3 text-right tabular-nums">{formatBaht(it.unitPriceSatang)}</td>
@@ -68,7 +68,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
           <Line label="ยอดก่อนภาษี" value={formatBaht(inv.subtotalSatang)} />
           <Line label="VAT" value={`+ ${formatBaht(inv.vatSatang)}`} />
           <Line label="หัก ณ ที่จ่าย" value={`- ${formatBaht(inv.whtSatang)}`} />
-          <div className="flex justify-between border-t border-slate-200 pt-2">
+          <div className="flex justify-between border-t border-line pt-2">
             <span className="font-semibold">ยอดชำระสุทธิ</span>
             <span className="text-lg font-bold text-accent tabular-nums">{formatBaht(inv.netSatang)} ฿</span>
           </div>
@@ -80,8 +80,8 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
 
 function Box({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl bg-white p-4 text-sm ring-1 ring-slate-200">
-      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-400">{title}</p>
+    <div className="rounded-xl bg-surface p-4 text-sm ring-1 ring-line">
+      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-faint">{title}</p>
       {children}
     </div>
   );
@@ -89,7 +89,7 @@ function Box({ title, children }: { title: string; children: React.ReactNode }) 
 function Line({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between">
-      <span className="text-slate-500">{label}</span>
+      <span className="text-muted">{label}</span>
       <span className="tabular-nums">{value}</span>
     </div>
   );

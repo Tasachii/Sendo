@@ -1,5 +1,5 @@
 const MAP: Record<string, { label: string; cls: string }> = {
-  DRAFT: { label: "ฉบับร่าง", cls: "bg-slate-100 text-slate-600" },
+  DRAFT: { label: "ฉบับร่าง", cls: "bg-accent-wash text-muted" },
   SENT: { label: "ออกแล้ว/ส่งแล้ว", cls: "bg-blue-100 text-blue-700" },
   PAID: { label: "ชำระแล้ว", cls: "bg-green-100 text-green-700" },
   OVERDUE: { label: "เกินกำหนด", cls: "bg-red-100 text-red-700" },
