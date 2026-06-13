@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { issueInvoice, setInvoiceStatus, deleteInvoice } from "@/app/actions/invoices";
+import { issueInvoice, setInvoiceStatus, deleteInvoice, duplicateInvoice } from "@/app/actions/invoices";
 
 export function InvoiceActions({ id, status, hasWht, canWrite }: { id: string; status: string; hasWht: boolean; canWrite: boolean }) {
   const router = useRouter();
@@ -39,6 +39,15 @@ export function InvoiceActions({ id, status, hasWht, canWrite }: { id: string; s
     router.refresh();
   }
 
+  async function onCopy() {
+    setBusy(true);
+    const res = await duplicateInvoice(id);
+    setBusy(false);
+    if (!res.ok) return alert(res.error);
+    router.push(`/invoices/${res.id}`);
+    router.refresh();
+  }
+
   const btn = "rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-50";
 
   return (
@@ -61,6 +70,9 @@ export function InvoiceActions({ id, status, hasWht, canWrite }: { id: string; s
         )}
         {canWrite && status === "SENT" && (
           <button onClick={() => mark("PAID")} disabled={busy} className={`${btn} bg-green-600 text-white hover:opacity-90`}>ทำเครื่องหมายว่าชำระแล้ว</button>
+        )}
+        {canWrite && (
+          <button onClick={onCopy} disabled={busy} className={`${btn} bg-surface ring-1 ring-line hover:bg-paper`}>ก๊อปเป็นฉบับร่างใหม่</button>
         )}
         {canWrite && (
           <button onClick={onDelete} className={`${btn} text-red-500 hover:bg-red-50`}>ลบ</button>

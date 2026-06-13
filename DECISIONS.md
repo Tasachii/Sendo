@@ -74,7 +74,20 @@ Auth + tenant guard, Customer/Service CRUD, create-invoice with live totals (ser
 poka-yoke 8-field validation on issue, invoice + WHT-cert PDFs, invoice list + statuses, tax-settings editor.
 `npm run test` = 14 green (tax 6, tenant 3, poka-yoke 5). `npm run build` passes. PDFs render (verified).
 
-## Open / next (Phase 2)
-- Weight/distance pricing modes on line items; copy-invoice; multi-shipment trackingNo.
-- Dashboard (month total / unpaid / overdue) + auto-OVERDUE past dueDate.
-- e-Withholding 1% reduced-rate note — confirm current rates with the accountant before go-live.
+## Phase 2 — DONE ✅
+- Pricing modes via `InvoiceItem.pricingMode` (FLAT/WEIGHT/DISTANCE). Line total is still
+  `qty × unitPrice`; the mode only changes the unit label (กก./กม.) — no engine change needed.
+- `Shipment` model for multi-shipment per invoice (kept `Invoice.trackingNo` for back-compat).
+- `duplicateInvoice` clones items + shipments into a new DRAFT with a fresh atomic number.
+- Auto-OVERDUE: `sweepOverdue(companyId)` runs on dashboard/list read (no cron needed for MVP).
+
+## Phase 3 — partial
+- D10: Monthly tax summary aggregated in JS from issued (non-DRAFT) invoices — `lib/reports.ts`.
+  SQLite/Prisma lacks easy date_trunc grouping; JS aggregation is fine at MVP volume. CSV uses a
+  UTF-8 BOM so Excel opens Thai correctly. VAT column = ภ.พ.30, WHT column = ภ.ง.ด.3/53.
+- D11: e-Tax (`lib/etax.ts`) and carriers (`lib/carriers.ts`) are interface stubs only — `buildSignedETaxPdf`
+  throws so a non-compliant doc can't ship silently; `trackShipment` returns "unknown" until adapters exist.
+
+## Open / next
+- Audit-log viewer UI; invite STAFF/VIEWER users; e-Withholding 1% reduced-rate (confirm with accountant).
+- Production hardening: PostgreSQL, Playwright e2e, rate-limiting (see ROADMAP).

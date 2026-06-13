@@ -10,9 +10,11 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
   const ctx = await requireSession();
   const inv = await db.invoice.findFirst({
     where: { id, companyId: ctx.companyId },
-    include: { customer: true, items: true, company: true },
+    include: { customer: true, items: true, company: true, shipments: true },
   });
   if (!inv) notFound();
+
+  const unitOf = (m: string) => (m === "WEIGHT" ? " กก." : m === "DISTANCE" ? " กม." : "");
 
   return (
     <div className="space-y-5">
@@ -57,7 +59,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
             {inv.items.map((it) => (
               <tr key={it.id} className="border-b border-line last:border-0">
                 <td className="px-4 py-3">{it.description}</td>
-                <td className="px-4 py-3 text-right tabular-nums">{it.qty}</td>
+                <td className="px-4 py-3 text-right tabular-nums">{it.qty}{unitOf(it.pricingMode)}</td>
                 <td className="px-4 py-3 text-right tabular-nums">{formatBaht(it.unitPriceSatang)}</td>
                 <td className="px-4 py-3 text-right tabular-nums">{formatBaht(it.lineTotalSatang)}</td>
               </tr>
@@ -74,6 +76,20 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
           </div>
         </div>
       </div>
+
+      {inv.shipments.length > 0 && (
+        <div className="rounded-xl bg-surface p-4 text-sm ring-1 ring-line">
+          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-faint">เลขติดตามพัสดุ (Tracking)</p>
+          <ul className="space-y-1">
+            {inv.shipments.map((s) => (
+              <li key={s.id} className="flex justify-between">
+                <span className="font-medium">{s.trackingNo}</span>
+                <span className="text-muted">{s.note || ""}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

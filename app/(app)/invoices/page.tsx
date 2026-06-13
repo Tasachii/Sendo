@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { requireSession, db } from "@/lib/tenant";
 import { formatBaht } from "@/lib/money";
+import { sweepOverdue } from "@/lib/overdue";
 import { StatusBadge } from "@/components/StatusBadge";
 
 export default async function InvoicesPage() {
   const ctx = await requireSession();
+  await sweepOverdue(ctx.companyId);
   const invoices = await db.invoice.findMany({
     where: { companyId: ctx.companyId },
     include: { customer: { select: { name: true } } },

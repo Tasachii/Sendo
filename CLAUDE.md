@@ -74,12 +74,15 @@ Demo login: `demo@sendo.test` / `demo1234`. Second tenant: `other@sendo.test` / 
 
 ## Phase status
 
-- **Phase 1 (MVP, in progress):** auth + tenant guard, Customer/Service CRUD, create-invoice with
-  live totals, poka-yoke issue validation, invoice + WHT-cert PDFs, invoice list.
-- **Phase 2:** weight/distance pricing, copy invoice, trackingNo, dashboard, status workflow.
-- **Phase 3 (stub only):** ภ.ง.ด.3/53 + ภ.พ.30 export, **e-Tax Invoice** (reference: ETDA
-  `e-TaxInvoice-PDFgen` — PDF/A-3 + embedded XML per ขมธอ.3-2560 v2.0 + digital signature; hard,
-  leave an interface + TODO), carrier API hooks.
+- **Phase 1 (MVP) — done:** auth + tenant guard, Customer/Service CRUD, create-invoice with
+  live totals, poka-yoke issue validation, invoice + WHT-cert PDFs, invoice list, atomic numbering, audit log.
+- **Phase 2 — done:** pricing modes (FLAT/WEIGHT/DISTANCE on `InvoiceItem.pricingMode`), copy invoice
+  (`duplicateInvoice`), multi-shipment (`Shipment` model), dashboard (month/unpaid/overdue), auto-OVERDUE
+  via `lib/overdue.ts` (`sweepOverdue` called on dashboard/list read).
+- **Phase 3 — partial:** monthly tax summary + CSV export done (`lib/reports.ts`, `/reports`,
+  `/api/reports/csv`). **e-Tax Invoice** and **carrier APIs** are interface stubs only — `lib/etax.ts`
+  (PDF/A-3 + XML per ขมธอ.3-2560 v2.0 + digital signature; ETDA reference) and `lib/carriers.ts`
+  (`CarrierAdapter` per carrier). Both throw/return-unknown until implemented.
 
 ## Conventions to match (from the team's `pocketo` repo)
 

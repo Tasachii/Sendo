@@ -30,10 +30,19 @@ export const serviceSchema = z.object({
 });
 export type ServiceInput = z.infer<typeof serviceSchema>;
 
+export const pricingModeSchema = z.enum(["FLAT", "WEIGHT", "DISTANCE"]);
+export type PricingMode = z.infer<typeof pricingModeSchema>;
+
 export const invoiceItemSchema = z.object({
   description: z.string().min(1, "กรุณากรอกรายละเอียด"),
+  pricingMode: pricingModeSchema.default("FLAT"),
   qty: z.coerce.number().gt(0, "จำนวนต้องมากกว่า 0"),
   unitPriceBaht: z.coerce.number().min(0, "ราคาต้องไม่ติดลบ"),
+});
+
+export const shipmentSchema = z.object({
+  trackingNo: z.string().min(1, "กรุณากรอกเลข tracking"),
+  note: z.string().optional().or(z.literal("")),
 });
 
 export const invoiceDraftSchema = z.object({
@@ -44,5 +53,6 @@ export const invoiceDraftSchema = z.object({
   trackingNo: z.string().optional().or(z.literal("")),
   note: z.string().optional().or(z.literal("")),
   items: z.array(invoiceItemSchema).min(1, "ต้องมีอย่างน้อย 1 รายการ"),
+  shipments: z.array(shipmentSchema).default([]),
 });
 export type InvoiceDraftInput = z.infer<typeof invoiceDraftSchema>;

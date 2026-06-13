@@ -35,16 +35,14 @@ tracks Phase 2/3 plus the production-hardening items raised in the CEO/CTO/CFO r
 
 ---
 
-## Phase 2 — reduce the logistics workload
+## Phase 2 — reduce the logistics workload — DONE ✅
 
-Highest ROI first; each item builds on Phase 1.
-
-- [ ] **Pricing modes per line item** — flat / by weight (per kg) / by distance (per km).
-      `InvoiceItem` gains `pricingMode` + `unit`; `computeTotals` stays the source of truth.
-- [ ] **Copy invoice** — duplicate any invoice into a new DRAFT (monthly repeat customers).
-- [ ] **Multi-shipment** — attach `trackingNo`(s); one invoice covering several shipments.
-- [ ] **Dashboard** — month total · unpaid · overdue; mobile-first cards.
-- [ ] **Status automation** — auto-flag `OVERDUE` past `dueDate` (scheduled job / on read).
+- [x] **Pricing modes per line item** — FLAT / WEIGHT (per kg) / DISTANCE (per km) on
+      `InvoiceItem.pricingMode`; `computeTotals` stays the source of truth.
+- [x] **Copy invoice** — `duplicateInvoice` clones items + shipments into a new DRAFT.
+- [x] **Multi-shipment** — `Shipment` model; repeatable tracking rows on the invoice form.
+- [x] **Dashboard** — month total · unpaid · overdue · recent invoices; mobile-first.
+- [x] **Status automation** — `sweepOverdue` flags OVERDUE past `dueDate` on read.
 - [ ] **Audit log viewer** — read-only timeline per invoice (data already captured).
 - [ ] **Roles polish** — invite STAFF/VIEWER users from the OWNER account.
 
@@ -52,10 +50,11 @@ Highest ROI first; each item builds on Phase 1.
 
 ## Phase 3 — pro / compliance
 
-- [ ] **Monthly tax summary export** — ภ.ง.ด.3 / ภ.ง.ด.53 and ภ.พ.30 totals from `Invoice` rows.
-- [ ] **e-Tax Invoice** — PDF/A-3 with embedded XML per ขมธอ.3-2560 v2.0 + digital signature.
-      Reference: ETDA `e-TaxInvoice-PDFgen`. Define the document interface first; ship a stub.
-- [ ] **Carrier API hooks** — pull shipment status (Flash / Kerry / ไปรษณีย์). Interface + TODO.
+- [x] **Monthly tax summary export** — ภ.ง.ด.3/53 + ภ.พ.30 monthly totals (`lib/reports.ts`,
+      `/reports`) with CSV download (`/api/reports/csv`, UTF-8 BOM for Excel Thai).
+- [ ] **e-Tax Invoice** — interface defined in `lib/etax.ts` (PDF/A-3 + XML per ขมธอ.3-2560 v2.0 +
+      digital signature, ETDA reference); body is a TODO that throws until implemented.
+- [ ] **Carrier API hooks** — `CarrierAdapter` interface in `lib/carriers.ts`; no live adapters yet.
 
 ---
 

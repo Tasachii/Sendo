@@ -2,10 +2,11 @@ import type { Prisma } from "@prisma/client";
 import { calcTax } from "@/lib/tax";
 import { bahtToSatang } from "@/lib/money";
 
-export type DraftItem = { description: string; qty: number; unitPriceBaht: number };
+export type DraftItem = { description: string; qty: number; unitPriceBaht: number; pricingMode?: string };
 
 export type ComputedItem = {
   description: string;
+  pricingMode: string;
   qty: number;
   unitPriceSatang: number;
   lineTotalSatang: number;
@@ -29,9 +30,9 @@ export function computeTotals(
 ): ComputedTotals {
   const computed: ComputedItem[] = items.map((it) => {
     const unitPriceSatang = bahtToSatang(it.unitPriceBaht);
-    // qty can be fractional (kg/km later); round the line to whole satang
+    // qty can be fractional (kg/km); round the line to whole satang
     const lineTotalSatang = Math.round(unitPriceSatang * it.qty);
-    return { description: it.description, qty: it.qty, unitPriceSatang, lineTotalSatang };
+    return { description: it.description, pricingMode: it.pricingMode ?? "FLAT", qty: it.qty, unitPriceSatang, lineTotalSatang };
   });
 
   const subtotalSatang = computed.reduce((s, it) => s + it.lineTotalSatang, 0);

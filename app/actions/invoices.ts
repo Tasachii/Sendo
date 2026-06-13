@@ -29,7 +29,7 @@ export async function createInvoice(raw: unknown): Promise<InvoiceActionResult> 
   if (!setting) return { ok: false, error: "ไม่พบการตั้งค่าภาษีของประเภทงานนี้" };
 
   const totals = computeTotals(
-    d.items.map((it) => ({ description: it.description, qty: it.qty, unitPriceBaht: it.unitPriceBaht })),
+    d.items.map((it) => ({ description: it.description, qty: it.qty, unitPriceBaht: it.unitPriceBaht, pricingMode: it.pricingMode })),
     setting
   );
 
@@ -55,6 +55,9 @@ export async function createInvoice(raw: unknown): Promise<InvoiceActionResult> 
             note: d.note || null,
             createdById: ctx.userId,
             items: { create: totals.items },
+            shipments: d.shipments.length
+              ? { create: d.shipments.map((s) => ({ trackingNo: s.trackingNo, note: s.note || null })) }
+              : undefined,
           },
         });
       });
@@ -109,6 +112,53 @@ export async function setInvoiceStatus(
   revalidatePath("/invoices");
   revalidatePath(`/invoices/${id}`);
   return { ok: true, id };
+}
+
+/** Copy an existing invoice into a fresh DRAFT (new number, today's date). */
+export async function duplicateInvoice(id: string): Promise<InvoiceActionResult> {
+  const ctx = await requireWriter();
+  const src = await db.invoice.findFirst({
+    where: { id, companyId: ctx.companyId },
+    include: { items: true, shipments: true },
+  });
+  if (!src) return { ok: false, error: "ไม่พบใบแจ้งหนี้" };
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      const copy = await db.$transaction(async (tx) => {
+        const number = await nextInvoiceNumber(tx, ctx.companyId);
+        return tx.invoice.create({
+          data: {
+            companyId: ctx.companyId,
+            number,
+            customerId: src.customerId,
+            issueDate: new Date(),
+            dueDate: null,
+            status: "DRAFT",
+            jobType: src.jobType,
+            subtotalSatang: src.subtotalSatang,
+            vatSatang: src.vatSatang,
+            whtSatang: src.whtSatang,
+            netSatang: src.netSatang,
+            trackingNo: src.trackingNo,
+            note: src.note,
+            createdById: ctx.userId,
+            items: { create: src.items.map((it) => ({ description: it.description, pricingMode: it.pricingMode, qty: it.qty, unitPriceSatang: it.unitPriceSatang, lineTotalSatang: it.lineTotalSatang })) },
+            shipments: src.shipments.length
+              ? { create: src.shipments.map((s) => ({ trackingNo: s.trackingNo, note: s.note })) }
+              : undefined,
+          },
+        });
+      });
+      await logAudit(ctx, "INVOICE_COPY", "Invoice", copy.id, `ก๊อปจาก ${src.number} → ${copy.number}`);
+      revalidatePath("/invoices");
+      return { ok: true, id: copy.id };
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") continue;
+      throw e;
+    }
+  }
+  return { ok: false, error: "ก๊อปใบแจ้งหนี้ไม่สำเร็จ กรุณาลองใหม่" };
 }
 
 export async function deleteInvoice(id: string): Promise<InvoiceActionResult> {

@@ -173,12 +173,12 @@ Covers the tax engine (the five spec cases plus rounding), tenant isolation, the
 
 ## Roadmap
 
-Phase 1 (the MVP) has shipped: auth with tenant isolation, customer/service/tax CRUD, the
-live-totals invoice screen, the poka-yoke issue gate, invoice and 50 ทวิ PDFs, atomic numbering, and
-an audit log. Next, in order of value: weight/distance pricing and copy-invoice (the features that
-make this a logistics tool, not just a billing form), then a dashboard for unpaid/overdue, then the
-hard compliance work — monthly ภ.ง.ด./ภ.พ.30 summaries and ETDA-format e-Tax invoices. The full
-plan, with the review fixes it closes, lives in [`ROADMAP.md`](ROADMAP.md).
+Phases 1 and 2 have shipped: auth with tenant isolation, customer/service/tax CRUD, the live-totals
+invoice screen, the poka-yoke issue gate, invoice and 50 ทวิ PDFs, atomic numbering, audit log,
+weight/distance pricing, copy-invoice, multi-shipment tracking, a dashboard (month/unpaid/overdue),
+and auto-OVERDUE. Phase 3 has the monthly ภ.ง.ด./ภ.พ.30 summary with CSV export done; the e-Tax
+Invoice (ETDA PDF/A-3 + XML) and carrier-API integrations are defined as interface stubs awaiting
+implementation. The full plan lives in [`ROADMAP.md`](ROADMAP.md).
 
 ## License
 

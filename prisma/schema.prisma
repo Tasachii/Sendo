@@ -139,6 +139,7 @@ model Invoice {
   customer  Customer      @relation(fields: [customerId], references: [id])
   createdBy User          @relation("InvoiceCreatedBy", fields: [createdById], references: [id])
   items     InvoiceItem[]
+  shipments Shipment[]
 
   @@unique([companyId, number])
 }
@@ -147,9 +148,22 @@ model InvoiceItem {
   id              String @id @default(cuid())
   invoiceId       String
   description     String
+  // pricingMode: FLAT (เหมา) | WEIGHT (ต่อ กก.) | DISTANCE (ต่อ กม.). qty carries the
+  // weight/distance; unitPriceSatang is the per-unit rate. lineTotal = qty × unitPrice regardless.
+  pricingMode     String @default("FLAT")
   qty             Float
   unitPriceSatang Int
   lineTotalSatang Int
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+}
+
+// One invoice can cover multiple shipments (build spec Phase 2).
+model Shipment {
+  id         String  @id @default(cuid())
+  invoiceId  String
+  trackingNo String
+  note       String?
 
   invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 }
