@@ -9,7 +9,17 @@ data is fully isolated, and the whole thing runs on a single local SQLite file �
 
 **Demo login:** `demo@sendo.test` / `demo1234` after `npm run seed` (runs at `http://localhost:3000`).
 
-<!-- TODO: add screenshots under docs/images and a table here once the UI redesign lands -->
+| Dashboard — month / unpaid / overdue | Create invoice — live, read-only totals |
+|---|---|
+| ![Dashboard](docs/images/dashboard.png) | ![Create invoice](docs/images/invoice-new.png) |
+
+| Invoice list with statuses | Monthly tax report (ภ.พ.30 / ภ.ง.ด.) |
+|---|---|
+| ![Invoices](docs/images/invoices.png) | ![Tax report](docs/images/reports.png) |
+
+| Poka-yoke blocks an invalid issue | Sign in |
+|---|---|
+| ![Poka-yoke](docs/images/poka-yoke.png) | ![Login](docs/images/login.png) |
 
 ## Why this exists
 
