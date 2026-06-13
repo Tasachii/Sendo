@@ -1,0 +1,13 @@
+# Render Blueprint — deploy Sendo as a Docker web service (free tier).
+# Usage: push to GitHub, then on render.com → New → Blueprint → pick this repo.
+services:
+  - type: web
+    name: sendo
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /login
+    envVars:
+      - key: NEXTAUTH_SECRET
+        generateValue: true
+      # NEXTAUTH_URL is derived from RENDER_EXTERNAL_URL at boot (see docker-entrypoint.sh)

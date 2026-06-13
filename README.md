@@ -9,6 +9,10 @@ data is fully isolated, and the whole thing runs on a single local SQLite file �
 
 **Demo login:** `demo@sendo.test` / `demo1234` after `npm run seed` (runs at `http://localhost:3000`).
 
+**Live demo** — one-click deploy to Render (free; demo data reseeds on each start). See [`DEPLOY.md`](DEPLOY.md).
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Tasachii/Sendo)
+
 | Dashboard — month / unpaid / overdue | Create invoice — live, read-only totals |
 |---|---|
 | ![Dashboard](docs/images/dashboard.png) | ![Create invoice](docs/images/invoice-new.png) |
