@@ -158,7 +158,7 @@ const today = () => new Date().toISOString().slice(0,10);
 const pct = n => (n*100).toFixed(0);
 
 let state = {
-  auth: false,
+  auth: localStorage.getItem("sendo-demo-auth") === "1",
   view: "new",            // new | list | issued
   issuedInvoice: null,
   form: null,
@@ -179,6 +179,7 @@ function computeTotals(form){
   if(!t) return {subtotalSatang, vatSatang:0, whtSatang:0, netSatang:subtotalSatang};
   return calcTax({subtotalSatang, vatRate:t.vatRate, whtRate:t.whtRate, vatApplicable:t.vatApplicable});
 }
+const lineAmtSatang = r => Math.round(bahtToSatang(parseFloat(r.price)||0) * (parseFloat(r.qty)||0));
 // poka-yoke: cannot issue unless legally valid (มาตรา 86/4)
 function issueBlockers(form){
   const out = [];
@@ -240,8 +241,6 @@ function formView(){
   const f = state.form ||= blankForm();
   const t = taxOf(f.jobType);
   const cust = customerOf(f.customerId);
-  const tot = computeTotals(f);
-  const blockers = issueBlockers(f);
 
   const custOpts = `<option value="" disabled ${f.customerId?'':'selected'}>— เลือกลูกค้า —</option>` +
     CUSTOMERS.map(c => `<option value="${c.id}" ${f.customerId===c.id?'selected':''}>${esc(c.name)}</option>`).join("");
@@ -261,7 +260,7 @@ function formView(){
       <select class="input" data-r="${i}" data-k="mode" title="วิธีคิดราคา">${modeOpts}</select>
       <input class="input tnum" data-r="${i}" data-k="qty" type="number" step="0.01" min="0" placeholder="${m.qtyLabel}" value="${esc(r.qty)}" />
       <input class="input tnum" data-r="${i}" data-k="price" type="number" step="0.01" min="0" placeholder="${m.priceLabel}" value="${esc(r.price)}" />
-      <div class="tnum muted" style="text-align:right;padding-top:.55rem;font-size:.85rem">${formatBaht(lineSatang)}</div>
+      <div class="tnum muted" data-amt="${i}" style="text-align:right;padding-top:.55rem;font-size:.85rem">${formatBaht(lineSatang)}</div>
       <button class="btn-quiet" data-del="${i}" style="padding:.4rem;color:var(--ink-faint)" title="ลบ">✕</button>
     </div>`;
   }).join("");
@@ -301,26 +300,37 @@ function formView(){
   </div>
 
   <div class="card" style="margin-bottom:16px">
-    <div class="totbox">
+    <div class="totbox" id="totals">${totalsInner(f)}</div>
+  </div>
+
+  <div id="issuebar">${issueBarInner(f)}</div>
+  `;
+}
+
+// totals block — re-rendered surgically on every keystroke (does NOT touch inputs)
+function totalsInner(f){
+  const t = taxOf(f.jobType), tot = computeTotals(f);
+  return `
       <div class="totrow"><span class="muted">ยอดก่อนภาษี (Subtotal)</span><span class="calc tnum">${formatBaht(tot.subtotalSatang)}</span></div>
       <div class="totrow"><span class="muted">VAT ${t&&t.vatApplicable?'('+pct(t.vatRate)+'%)':'(ยกเว้น)'}</span><span class="calc tnum">+ ${formatBaht(tot.vatSatang)}</span></div>
       <div class="totrow"><span class="muted">หัก ณ ที่จ่าย (${t?pct(t.whtRate):'0'}%)</span><span class="calc tnum">- ${formatBaht(tot.whtSatang)}</span></div>
       <div class="net"><span style="font-weight:600">ยอดชำระสุทธิ (Net)</span><b class="tnum">${formatBaht(tot.netSatang)} ฿</b></div>
-      <p class="faint" style="text-align:right;font-size:.72rem;margin:.4rem 0 0">ระบบคำนวณให้อัตโนมัติ — แก้ไขไม่ได้</p>
-    </div>
-  </div>
+      <p class="faint" style="text-align:right;font-size:.72rem;margin:.4rem 0 0">ระบบคำนวณให้อัตโนมัติ — แก้ไขไม่ได้</p>`;
+}
 
+// issue/draft bar + poka-yoke blockers — also re-rendered surgically
+function issueBarInner(f){
+  const blockers = issueBlockers(f);
+  return `
   ${f.error ? `<p style="color:#c0392b;font-size:.88rem">${esc(f.error)}</p>`:``}
-
   <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">
     <span class="faint" style="font-size:.78rem">${blockers.length ? '⚠ ออกใบกำกับไม่ได้: '+blockers.length+' ข้อต้องแก้' : '✓ ผ่านเงื่อนไข มาตรา 86/4 — ออกได้'}</span>
     <div style="display:flex;gap:8px">
       <button class="btn btn-ghost" id="saveDraft">บันทึกฉบับร่าง</button>
-      <button class="btn btn-primary" id="issueBtn" ${blockers.length?'disabled title="'+esc(blockers.join(' · '))+'"':''}>ออกใบกำกับภาษี</button>
+      <button class="btn btn-primary" id="issueBtn" ${blockers.length?'disabled':''}>ออกใบกำกับภาษี</button>
     </div>
   </div>
-  ${blockers.length ? `<ul class="faint" style="font-size:.76rem;margin:.2rem 0 0;padding-left:1.2rem">${blockers.map(b=>`<li>${esc(b)}</li>`).join("")}</ul>`:``}
-  `;
+  ${blockers.length ? `<ul class="faint" style="font-size:.76rem;margin:.2rem 0 0;padding-left:1.2rem">${blockers.map(b=>`<li>${esc(b)}</li>`).join("")}</ul>`:``}`;
 }
 
 function listView(){
@@ -398,7 +408,7 @@ function issuedView(){
 function bind(){
   // login
   const lb = document.getElementById("loginBtn");
-  if(lb) lb.onclick = () => { state.auth = true; state.view = "new"; state.form = blankForm(); render(); };
+  if(lb) lb.onclick = () => { localStorage.setItem("sendo-demo-auth","1"); state.auth = true; state.view = "new"; state.form = blankForm(); render(); };
 
   // nav (top tabs + inline)
   document.querySelectorAll("[data-nav]").forEach(el => el.onclick = () => {
@@ -416,10 +426,12 @@ function bind(){
   document.querySelectorAll("[data-f]").forEach(el => {
     el.oninput = el.onchange = () => { f[el.dataset.f] = el.value; if(el.dataset.f==="customerId"||el.dataset.f==="jobType") render(); };
   });
-  // row fields
+  // row fields — text/number inputs update LIVE without a full re-render (keeps focus + cursor);
+  // only the pricing-mode <select> needs a structural re-render (its placeholders change).
   document.querySelectorAll("[data-r]").forEach(el => {
     const i = +el.dataset.r, k = el.dataset.k;
-    el.oninput = el.onchange = () => { f.rows[i][k] = el.value; render(); };
+    if(k === "mode"){ el.onchange = () => { f.rows[i].mode = el.value; render(); }; return; }
+    el.oninput = () => { f.rows[i][k] = el.value; refreshLive(); };
   });
   // service picker
   document.querySelectorAll("[data-svc]").forEach(el => {
@@ -435,11 +447,29 @@ function bind(){
   });
   const ar = document.getElementById("addRow"); if(ar) ar.onclick = () => { f.rows.push(blankRow()); render(); };
 
+  bindIssueBar();
+}
+
+// (re)attach handlers for the issue/draft buttons — their container is replaced on refreshLive()
+function bindIssueBar(){
+  const f = state.form;
   const sd = document.getElementById("saveDraft"); if(sd) sd.onclick = () => persist("DRAFT");
   const ib = document.getElementById("issueBtn");  if(ib) ib.onclick  = () => {
-    if(issueBlockers(f).length){ f.error = "ยังออกใบกำกับไม่ได้ — แก้ไขข้อที่ติดด้านล่างก่อน"; render(); return; }
+    if(issueBlockers(f).length) return; // button is disabled anyway; guard for safety
     persist("ISSUED");
   };
+}
+
+// Surgical live update on keystrokes: refresh totals, per-line amounts, and the issue bar
+// WITHOUT rebuilding the inputs the user is typing in.
+function refreshLive(){
+  const f = state.form;
+  const tEl = document.getElementById("totals");   if(tEl) tEl.innerHTML = totalsInner(f);
+  const bEl = document.getElementById("issuebar"); if(bEl){ bEl.innerHTML = issueBarInner(f); bindIssueBar(); }
+  f.rows.forEach((r,i) => {
+    const c = document.querySelector(`[data-amt="${i}"]`);
+    if(c) c.textContent = formatBaht(lineAmtSatang(r));
+  });
 }
 
 function nextNumber(status){
