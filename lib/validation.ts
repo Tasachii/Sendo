@@ -12,6 +12,14 @@ export const registerSchema = z.object({
 });
 export type RegisterInput = z.infer<typeof registerSchema>;
 
+export const teamMemberSchema = z.object({
+  name: z.string().min(1, "กรุณากรอกชื่อ"),
+  email: z.string().email("อีเมลไม่ถูกต้อง"),
+  password: z.string().min(8, "รหัสผ่านอย่างน้อย 8 ตัวอักษร"),
+  role: z.enum(["OWNER", "STAFF", "VIEWER"]),
+});
+export type TeamMemberInput = z.infer<typeof teamMemberSchema>;
+
 export const customerSchema = z.object({
   name: z.string().min(1, "กรุณากรอกชื่อลูกค้า"),
   taxId: z.string().optional().or(z.literal("")),

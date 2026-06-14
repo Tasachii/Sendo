@@ -44,4 +44,11 @@ export async function requireWriter(): Promise<SessionContext> {
   return ctx;
 }
 
+/** OWNER-only actions (team management). */
+export async function requireOwner(): Promise<SessionContext> {
+  const ctx = await requireSession();
+  if (ctx.role !== "OWNER") throw new Error("FORBIDDEN_OWNER_ONLY");
+  return ctx;
+}
+
 export { db };

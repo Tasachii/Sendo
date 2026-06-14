@@ -43,8 +43,9 @@ tracks Phase 2/3 plus the production-hardening items raised in the CEO/CTO/CFO r
 - [x] **Multi-shipment** — `Shipment` model; repeatable tracking rows on the invoice form.
 - [x] **Dashboard** — month total · unpaid · overdue · recent invoices; mobile-first.
 - [x] **Status automation** — `sweepOverdue` flags OVERDUE past `dueDate` on read.
-- [ ] **Audit log viewer** — read-only timeline per invoice (data already captured).
-- [ ] **Roles polish** — invite STAFF/VIEWER users from the OWNER account.
+- [x] **Audit log viewer** — read-only `/audit` timeline of invoice actions (data already captured).
+- [x] **Roles polish** — OWNER invites STAFF/VIEWER members at `/team`, changes roles, removes
+      members (guards: keep ≥1 owner, can't delete a user who issued invoices).
 
 ---
 
