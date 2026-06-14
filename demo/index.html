@@ -365,9 +365,13 @@ function issuedView(){
       <td class="tnum" style="text-align:right">${formatBaht(bahtToSatang(parseFloat(r.price)||0))}</td>
       <td class="tnum" style="text-align:right">${formatBaht(line)}</td></tr>`;
   }).join("");
+  const isDraft = v.status === "DRAFT";
+  const heading = isDraft
+    ? `ใบแจ้งหนี้ (ฉบับร่าง) <span class="pill pill-draft">ร่าง</span>`
+    : `ออกใบกำกับเรียบร้อย <span class="stamp">ISSUED ✓</span>`;
   return `
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-    <h1 style="font-size:1.4rem">ออกใบกำกับเรียบร้อย <span class="stamp">ISSUED ✓</span></h1>
+    <h1 style="font-size:1.4rem">${heading}</h1>
     <div style="display:flex;gap:8px">
       <button class="btn btn-ghost" data-nav="new">+ สร้างใบใหม่</button>
       <button class="btn btn-ghost" data-nav="list">ดูทั้งหมด</button>
