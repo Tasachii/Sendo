@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Sendo センド — เดโม (ใบกำกับภาษี + หัก ณ ที่จ่าย)</title>
-<meta name="description" content="เดโมเชิงโต้ตอบของ Sendo — ออกใบกำกับภาษีไทยแบบ poka-yoke ระบบคำนวณ VAT / หัก ณ ที่จ่าย / ยอดสุทธิ ให้อัตโนมัติ แก้ไขไม่ได้" />
+<meta name="description" content="เดโมเชิงโต้ตอบของ Sendo — ออกใบกำกับภาษีไทยแบบ poka-yoke ระบบคำนวณ VAT / หัก ณ ที่จ่าย / ยอดสุทธิ ให้อัตโนมัติ พร้อม dashboard, รายงานภาษี และ export CSV" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -26,22 +26,26 @@
   a{color:var(--accent);text-decoration:none}
   .wrap{max-width:980px;margin:0 auto;padding:0 20px}
   .tnum{font-variant-numeric:tabular-nums}
+  .muted{color:var(--ink-soft)} .faint{color:var(--ink-faint)} .ok{color:#5a6b3f}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
 
   /* top bar */
   .topbar{border-bottom:1px solid var(--line);background:rgba(255,255,255,.7);backdrop-filter:blur(8px);position:sticky;top:0;z-index:10}
-  .topbar .wrap{display:flex;align-items:center;gap:14px;height:60px}
-  .brand{font-weight:700;font-size:1.15rem;letter-spacing:.02em}
+  .topbar .wrap{display:flex;align-items:center;gap:12px;height:60px}
+  .brand{font-weight:700;font-size:1.15rem;letter-spacing:.02em;white-space:nowrap}
   .brand small{color:var(--ink-faint);font-weight:500;font-size:.7rem;margin-left:6px;letter-spacing:.18em}
-  .badge-demo{margin-left:auto;font-size:.72rem;color:var(--accent);background:var(--accent-wash);padding:4px 10px;border-radius:999px;font-weight:600}
-  .nav{display:flex;gap:4px}
-  .nav button{font:inherit;font-size:.86rem;color:var(--ink-soft);background:none;border:0;padding:7px 12px;border-radius:8px;cursor:pointer}
+  .badge-demo{font-size:.72rem;color:var(--accent);background:var(--accent-wash);padding:4px 10px;border-radius:999px;font-weight:600}
+  .nav{display:flex;gap:2px;overflow-x:auto;margin-left:6px}
+  .nav button{font:inherit;font-size:.86rem;color:var(--ink-soft);background:none;border:0;padding:7px 11px;border-radius:8px;cursor:pointer;white-space:nowrap}
   .nav button:hover{background:#f1ede4;color:var(--ink)}
   .nav button.on{color:var(--accent);background:var(--accent-wash);font-weight:600}
+  .spacer{margin-left:auto}
 
   /* cards / inputs */
   .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-  @media(max-width:640px){.grid2{grid-template-columns:1fr}}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  @media(max-width:640px){.grid2,.grid3{grid-template-columns:1fr}}
   label.fl{display:block;margin-bottom:.3rem;font-size:.8rem;color:var(--ink-soft)}
   .input{width:100%;background:var(--surface);border:1px solid var(--line-strong);border-radius:8px;padding:.5rem .7rem;color:var(--ink);font:inherit;outline:none;transition:border-color .15s,box-shadow .15s}
   .input::placeholder{color:var(--ink-faint)}
@@ -61,26 +65,39 @@
   .link{color:var(--accent);font-weight:500;background:none;border:0;font:inherit;cursor:pointer;padding:0}
   .link:hover{text-decoration:underline}
 
-  /* calc field — read-only poka-yoke */
   .calc{background:#f4f1ea;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:.1rem .5rem}
 
   /* items */
   .row{display:grid;grid-template-columns:1fr 130px 90px 120px 96px 28px;gap:8px;align-items:start}
-  @media(max-width:640px){.row{grid-template-columns:1fr 1fr;gap:6px}}
-  .muted{color:var(--ink-soft)} .faint{color:var(--ink-faint)}
+  @media(max-width:680px){
+    .row{grid-template-columns:1fr 1fr;gap:6px}
+    .row .col-span{grid-column:1/-1}
+    .nav{gap:0}
+    .nav button{padding:7px 8px;font-size:.8rem}
+  }
   .totbox{margin-left:auto;max-width:340px}
   .totrow{display:flex;justify-content:space-between;align-items:center;font-size:.9rem;padding:3px 0}
   .net{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding-top:10px;margin-top:6px}
   .net b{font-size:1.4rem;color:var(--accent)}
 
+  /* stat cards */
+  .stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px}
+  .stat .k{font-size:.82rem;color:var(--ink-soft)}
+  .stat .v{font-size:1.7rem;font-weight:700;margin-top:6px;color:var(--ink)}
+  .stat .v.accent{color:var(--accent)}
+  .stat .v.warnc{color:#b4791f}
+  .stat .sub{font-size:.76rem;color:var(--ink-faint);margin-top:2px}
+
   /* table */
   table{width:100%;border-collapse:collapse;font-size:.88rem}
   th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line)}
   th{font-size:.74rem;color:var(--ink-faint);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+  tfoot td{font-weight:700;border-top:2px solid var(--line-strong);border-bottom:0}
   .pill{display:inline-block;font-size:.72rem;padding:2px 9px;border-radius:999px;font-weight:600}
   .pill-draft{background:#f1ede4;color:var(--ink-soft)}
   .pill-issued{background:#e7eddf;color:#5a6b3f}
   .pill-paid{background:#e2ece6;color:#3f6b56}
+  .pill-overdue{background:#f6e4df;color:#a4513a}
 
   /* login */
   .center{min-height:calc(100vh - 60px);display:flex;align-items:center;justify-content:center;padding:24px}
@@ -90,13 +107,13 @@
   /* issued sheet */
   .sheet{background:#fff;border:1px solid var(--line);border-radius:12px;padding:32px}
   .sheet h2{font-size:1.05rem}
-  .kv{display:flex;justify-content:space-between;font-size:.86rem;padding:4px 0}
+  .kv{display:flex;justify-content:space-between;font-size:.86rem;padding:4px 0;gap:12px}
   .stamp{display:inline-block;border:2px solid #5a6b3f;color:#5a6b3f;border-radius:8px;padding:4px 12px;font-weight:700;font-size:.8rem;transform:rotate(-4deg)}
-  .ok{color:#5a6b3f}
 
   .section-title{font-size:.95rem;font-weight:600;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center}
   .foot{color:var(--ink-faint);font-size:.78rem;text-align:center;padding:28px 0 40px}
   .foot a{font-weight:600}
+  h1.page{font-size:1.5rem;margin-bottom:16px}
 
   /* print → Save as PDF: show only the document(s), drop all app chrome */
   @media print{
@@ -128,8 +145,9 @@ function calcTax({subtotalSatang, vatRate, whtRate, vatApplicable, whtThresholdS
 /* ───────────────────────── demo data (mirrors prisma/seed.ts) ─────────────────── */
 const COMPANY = { name:"บริษัท เซ็นโด ขนส่ง จำกัด", taxId:"0105560000001", address:"99/1 ถนนพระราม 9 แขวงห้วยขวาง เขตห้วยขวาง กรุงเทพฯ 10310" };
 
-// jobType drives the rates — exactly the TaxSetting rows from seed.ts
-const TAX = [
+// canonical rate table — matches the TaxSetting rows in prisma/seed.ts.
+// tests/demo-rates.test.ts asserts these stay in sync with seed + lib/tax. Keep the literal shape.
+const DEFAULT_TAX = [
   { jobType:"transport_only",    label:"ขนส่งล้วน (จดทะเบียนขนส่ง)", vatRate:0,    whtRate:0.01, vatApplicable:false },
   { jobType:"transport_service", label:"ขนส่งพ่วงบริการ",            vatRate:0.07, whtRate:0.03, vatApplicable:true  },
   { jobType:"service",           label:"ค่าบริการ / รับจ้างทำของ",   vatRate:0.07, whtRate:0.03, vatApplicable:true  },
@@ -137,6 +155,12 @@ const TAX = [
   { jobType:"advertising",       label:"ค่าโฆษณา",                   vatRate:0.07, whtRate:0.02, vatApplicable:true  },
   { jobType:"custom",            label:"กำหนดเอง",                   vatRate:0.07, whtRate:0.03, vatApplicable:true  },
 ];
+// runtime rates = defaults with any per-jobType override saved in Settings (localStorage)
+function loadRates(){
+  let ov = {}; try { ov = JSON.parse(localStorage.getItem("sendo-demo-rates")) || {}; } catch {}
+  return DEFAULT_TAX.map(d => ov[d.jobType] ? {...d, ...ov[d.jobType]} : {...d});
+}
+let TAX = loadRates();
 const taxOf = jt => TAX.find(t => t.jobType === jt);
 
 const CUSTOMERS = [
@@ -159,37 +183,42 @@ const MODES = [
 ];
 const modeOf = m => MODES.find(x => x.mode === m);
 
-/* ───────────────────────── tiny state + helpers ─────────────────── */
+/* ───────────────────────── helpers ─────────────────── */
 const LS = "sendo-demo-invoices";
 const loadInvoices = () => { try { return JSON.parse(localStorage.getItem(LS)) || []; } catch { return []; } };
 const saveInvoices = a => localStorage.setItem(LS, JSON.stringify(a));
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const today = () => new Date().toISOString().slice(0,10);
-const pct = n => (n*100).toFixed(0);
+const pct = n => (n*100).toFixed(n*100 % 1 === 0 ? 0 : 2);
+const lineAmtSatang = r => Math.round(bahtToSatang(parseFloat(r.price)||0) * (parseFloat(r.qty)||0));
+
+// derive a display status: ISSUED + past due date → OVERDUE (mirrors lib/overdue.ts, non-destructive)
+function displayStatus(v){
+  if(v.status === "ISSUED" && v.dueDate && v.dueDate < today()) return "OVERDUE";
+  return v.status;
+}
+const STATUS_TH = { DRAFT:"ฉบับร่าง", ISSUED:"ออกแล้ว", PAID:"ชำระแล้ว", OVERDUE:"เกินกำหนด" };
+const STATUS_PILL = { DRAFT:"pill-draft", ISSUED:"pill-issued", PAID:"pill-paid", OVERDUE:"pill-overdue" };
 
 let state = {
   auth: localStorage.getItem("sendo-demo-auth") === "1",
-  view: "new",            // new | list | issued
+  view: "dashboard",     // dashboard | new | list | issued | reports | settings
   issuedInvoice: null,
   form: null,
+  reportYear: new Date().getFullYear(),
 };
 const blankRow = () => ({ description:"", qty:"1", price:"", mode:"FLAT" });
 function blankForm(){
-  return { customerId:"", jobType:TAX[0].jobType, issueDate:today(), dueDate:"", note:"", rows:[blankRow()], error:"" };
+  return { id:null, customerId:"", jobType:TAX[0].jobType, issueDate:today(), dueDate:"", note:"", rows:[blankRow()], shipments:[], error:"" };
 }
 
 /* ───────────────────────── totals + poka-yoke validation ─────────────────── */
 function computeTotals(form){
-  const subtotalSatang = form.rows.reduce((s,r) => {
-    const qty = parseFloat(r.qty) || 0;
-    const price = bahtToSatang(parseFloat(r.price) || 0);
-    return s + Math.round(price * qty);
-  }, 0);
+  const subtotalSatang = form.rows.reduce((s,r) => s + lineAmtSatang(r), 0);
   const t = taxOf(form.jobType);
   if(!t) return {subtotalSatang, vatSatang:0, whtSatang:0, netSatang:subtotalSatang};
   return calcTax({subtotalSatang, vatRate:t.vatRate, whtRate:t.whtRate, vatApplicable:t.vatApplicable});
 }
-const lineAmtSatang = r => Math.round(bahtToSatang(parseFloat(r.price)||0) * (parseFloat(r.qty)||0));
 // poka-yoke: cannot issue unless legally valid (มาตรา 86/4)
 function issueBlockers(form){
   const out = [];
@@ -204,24 +233,30 @@ function issueBlockers(form){
   return out;
 }
 
-/* ───────────────────────── render ─────────────────── */
+/* ───────────────────────── shell ─────────────────── */
 const app = () => document.getElementById("app");
 function render(){
   if(!state.auth){ app().innerHTML = loginView(); bind(); return; }
-  app().innerHTML = topbar() + `<main class="wrap" style="padding-top:26px">` +
-    (state.view === "new" ? formView()
-     : state.view === "list" ? listView()
-     : issuedView()) +
-    `</main>` + footer();
+  const body = state.view === "dashboard" ? dashboardView()
+    : state.view === "new" ? formView()
+    : state.view === "list" ? listView()
+    : state.view === "reports" ? reportsView()
+    : state.view === "settings" ? settingsView()
+    : issuedView();
+  app().innerHTML = topbar() + `<main class="wrap" style="padding-top:24px">${body}</main>` + footer();
   bind();
 }
 
 function topbar(){
-  const tab = (id,txt) => `<button data-nav="${id}" class="${state.view===id?'on':''}">${txt}</button>`;
+  const tab = (id,txt) => `<button data-nav="${id}" class="${state.view===id?'on':''}" ${state.view===id?'aria-current="page"':''}>${txt}</button>`;
   return `<header class="topbar"><div class="wrap">
     <span class="brand">Sendo<small>センド</small></span>
-    <nav class="nav">${tab("new","สร้างใบแจ้งหนี้")}${tab("list","ใบแจ้งหนี้")}</nav>
+    <nav class="nav" aria-label="เมนูหลัก">
+      ${tab("dashboard","แดชบอร์ด")}${tab("new","สร้างใบแจ้งหนี้")}${tab("list","ใบแจ้งหนี้")}${tab("reports","รายงานภาษี")}${tab("settings","ตั้งค่า")}
+    </nav>
+    <span class="spacer"></span>
     <span class="badge-demo">เดโม</span>
+    <button class="btn-quiet" id="logout" style="font-size:.82rem;padding:6px 10px;border-radius:8px">ออกจากระบบ</button>
   </div></header>`;
 }
 function footer(){
@@ -230,15 +265,15 @@ function footer(){
 }
 
 function loginView(){
-  return `<header class="topbar"><div class="wrap"><span class="brand">Sendo<small>センド</small></span><span class="badge-demo">เดโม</span></div></header>
+  return `<header class="topbar"><div class="wrap"><span class="brand">Sendo<small>センド</small></span><span class="spacer"></span><span class="badge-demo">เดโม</span></div></header>
   <div class="center"><div class="login">
-    <div class="seal">セ</div>
+    <div class="seal" aria-hidden="true">セ</div>
     <h1 style="font-size:1.4rem">เข้าสู่ระบบ</h1>
     <p class="muted" style="margin:.4rem 0 22px;font-size:.9rem">ออกใบกำกับภาษี & หนังสือรับรองหัก ณ ที่จ่าย<br>สำหรับธุรกิจขนส่ง — ป้องกันการกรอกผิดด้วยดีไซน์</p>
     <div class="card" style="text-align:left">
-      <label class="fl">อีเมล</label>
+      <label class="fl" for="email">อีเมล</label>
       <input class="input" id="email" value="demo@sendo.test" />
-      <label class="fl" style="margin-top:12px">รหัสผ่าน</label>
+      <label class="fl" for="pw" style="margin-top:12px">รหัสผ่าน</label>
       <input class="input" id="pw" type="password" value="demo1234" />
       <button class="btn btn-primary" id="loginBtn" style="width:100%;margin-top:18px">เข้าสู่ระบบ</button>
       <p class="hint" style="text-align:center">บัญชีเดโมเติมไว้ให้แล้ว — กดเข้าสู่ระบบได้เลย</p>
@@ -247,6 +282,31 @@ function loginView(){
   </div></div>`;
 }
 
+/* ───────────────────────── dashboard ─────────────────── */
+function dashboardView(){
+  const inv = loadInvoices();
+  const ym = today().slice(0,7);
+  const counted = inv.filter(v => v.status !== "DRAFT");
+  const monthNet = counted.filter(v => (v.issueDate||"").slice(0,7) === ym).reduce((s,v)=>s+v.netSatang,0);
+  const monthCount = counted.filter(v => (v.issueDate||"").slice(0,7) === ym).length;
+  const unpaid = inv.filter(v => displayStatus(v)==="ISSUED" || displayStatus(v)==="OVERDUE");
+  const unpaidSum = unpaid.reduce((s,v)=>s+v.netSatang,0);
+  const overdue = inv.filter(v => displayStatus(v)==="OVERDUE");
+  const recent = inv.slice().reverse().slice(0,5);
+  return `
+  <h1 class="page">แดชบอร์ด</h1>
+  <div class="grid3" style="margin-bottom:16px">
+    <div class="stat"><div class="k">ยอดออกบิลเดือนนี้</div><div class="v accent tnum">${formatBaht(monthNet)} ฿</div><div class="sub">${monthCount} ใบ (ไม่รวมร่าง)</div></div>
+    <div class="stat"><div class="k">ค้างชำระ</div><div class="v tnum">${formatBaht(unpaidSum)} ฿</div><div class="sub">${unpaid.length} ใบ</div></div>
+    <div class="stat"><div class="k">เกินกำหนด</div><div class="v warnc tnum">${overdue.length}</div><div class="sub">${overdue.length? 'ต้องติดตาม':'ไม่มีค้างเกินกำหนด'}</div></div>
+  </div>
+  <div class="card">
+    <div class="section-title">ล่าสุด <button class="link" data-nav="new">+ สร้างใบแจ้งหนี้</button></div>
+    ${recent.length ? invTable(recent) : `<p class="muted" style="padding:18px 0">ยังไม่มีใบแจ้งหนี้ — <button class="link" data-nav="new">สร้างใบแรก</button></p>`}
+  </div>`;
+}
+
+/* ───────────────────────── form ─────────────────── */
 function formView(){
   const f = state.form ||= blankForm();
   const t = taxOf(f.jobType);
@@ -258,55 +318,65 @@ function formView(){
 
   const rowsHtml = f.rows.map((r,i) => {
     const m = modeOf(r.mode);
-    const lineSatang = Math.round(bahtToSatang(parseFloat(r.price)||0) * (parseFloat(r.qty)||0));
+    const modeOpts = MODES.map(x => `<option value="${x.mode}" ${r.mode===x.mode?'selected':''}>${x.label}</option>`).join("");
     const svcOpts = `<option value="" disabled selected>เลือกจากรายการบริการ…</option>` +
       SERVICES.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join("");
-    const modeOpts = MODES.map(x => `<option value="${x.mode}" ${r.mode===x.mode?'selected':''}>${x.label}</option>`).join("");
     return `<div class="row" style="margin-bottom:10px">
-      <div>
-        <input class="input" data-r="${i}" data-k="description" placeholder="รายละเอียด" value="${esc(r.description)}" />
-        <select class="input" data-svc="${i}" style="margin-top:5px;font-size:.78rem;color:var(--ink-soft);padding:.3rem .6rem">${svcOpts}</select>
+      <div class="col-span">
+        <input class="input" data-r="${i}" data-k="description" placeholder="รายละเอียด" aria-label="รายละเอียดรายการที่ ${i+1}" value="${esc(r.description)}" />
+        <select class="input" data-svc="${i}" aria-label="เลือกจากรายการบริการ" style="margin-top:5px;font-size:.78rem;color:var(--ink-soft);padding:.3rem .6rem">${svcOpts}</select>
       </div>
-      <select class="input" data-r="${i}" data-k="mode" title="วิธีคิดราคา">${modeOpts}</select>
-      <input class="input tnum" data-r="${i}" data-k="qty" type="number" step="0.01" min="0" placeholder="${m.qtyLabel}" value="${esc(r.qty)}" />
-      <input class="input tnum" data-r="${i}" data-k="price" type="number" step="0.01" min="0" placeholder="${m.priceLabel}" value="${esc(r.price)}" />
-      <div class="tnum muted" data-amt="${i}" style="text-align:right;padding-top:.55rem;font-size:.85rem">${formatBaht(lineSatang)}</div>
-      <button class="btn-quiet" data-del="${i}" style="padding:.4rem;color:var(--ink-faint)" title="ลบ">✕</button>
+      <select class="input" data-r="${i}" data-k="mode" aria-label="วิธีคิดราคา">${modeOpts}</select>
+      <input class="input tnum" data-r="${i}" data-k="qty" type="number" step="0.01" min="0" placeholder="${m.qtyLabel}" aria-label="${m.qtyLabel}" value="${esc(r.qty)}" />
+      <input class="input tnum" data-r="${i}" data-k="price" type="number" step="0.01" min="0" placeholder="${m.priceLabel}" aria-label="${m.priceLabel}" value="${esc(r.price)}" />
+      <div class="tnum muted" data-amt="${i}" style="text-align:right;padding-top:.55rem;font-size:.85rem">${formatBaht(lineAmtSatang(r))}</div>
+      <button class="btn-quiet" data-del="${i}" style="padding:.4rem;color:var(--ink-faint)" title="ลบรายการ" aria-label="ลบรายการที่ ${i+1}">✕</button>
     </div>`;
   }).join("");
 
+  const shipHtml = f.shipments.map((s,i) => `<div class="row" style="grid-template-columns:1fr 1fr 28px;margin-bottom:8px">
+      <input class="input" data-ship="${i}" data-sk="trackingNo" placeholder="เลขพัสดุ (tracking)" aria-label="เลขพัสดุที่ ${i+1}" value="${esc(s.trackingNo)}" />
+      <input class="input" data-ship="${i}" data-sk="note" placeholder="หมายเหตุ" aria-label="หมายเหตุพัสดุที่ ${i+1}" value="${esc(s.note)}" />
+      <button class="btn-quiet" data-shipdel="${i}" style="padding:.4rem;color:var(--ink-faint)" aria-label="ลบพัสดุที่ ${i+1}">✕</button>
+    </div>`).join("");
+
   return `
-  <h1 style="font-size:1.5rem;margin-bottom:18px">สร้างใบแจ้งหนี้</h1>
+  <h1 class="page">${f.id ? 'แก้ไขใบแจ้งหนี้ (ร่าง)' : 'สร้างใบแจ้งหนี้'}</h1>
 
   <div class="card grid2" style="margin-bottom:16px">
     <div>
-      <label class="fl">ลูกค้า *</label>
-      <select class="input" data-f="customerId">${custOpts}</select>
+      <label class="fl" for="f-cust">ลูกค้า *</label>
+      <select class="input" id="f-cust" data-f="customerId">${custOpts}</select>
       ${cust && cust.isVatRegistered && !cust.taxId ? `<p class="warn">ลูกค้าจด VAT แต่ยังไม่มีเลขผู้เสียภาษี — จะออกใบกำกับไม่ได้</p>`:``}
       ${cust && !cust.hasAddress ? `<p class="warn">ลูกค้านี้ยังไม่มีที่อยู่ — จะออกใบกำกับไม่ได้</p>`:``}
     </div>
     <div>
-      <label class="fl">ประเภทงาน * (กำหนดอัตราภาษีอัตโนมัติ)</label>
-      <select class="input" data-f="jobType">${jobOpts}</select>
+      <label class="fl" for="f-job">ประเภทงาน * (กำหนดอัตราภาษีอัตโนมัติ)</label>
+      <select class="input" id="f-job" data-f="jobType">${jobOpts}</select>
       ${t ? `<p class="hint">VAT ${t.vatApplicable?pct(t.vatRate)+'%':'ยกเว้น'} · หัก ณ ที่จ่าย ${pct(t.whtRate)}%</p>`:``}
     </div>
     <div>
-      <label class="fl">วันที่ออก *</label>
-      <input class="input" type="date" data-f="issueDate" value="${esc(f.issueDate)}" />
+      <label class="fl" for="f-issue">วันที่ออก *</label>
+      <input class="input" id="f-issue" type="date" data-f="issueDate" value="${esc(f.issueDate)}" />
     </div>
     <div>
-      <label class="fl">ครบกำหนดชำระ</label>
-      <input class="input" type="date" data-f="dueDate" value="${esc(f.dueDate)}" />
+      <label class="fl" for="f-due">ครบกำหนดชำระ</label>
+      <input class="input" id="f-due" type="date" data-f="dueDate" value="${esc(f.dueDate)}" />
     </div>
     <div style="grid-column:1/-1">
-      <label class="fl">หมายเหตุ</label>
-      <input class="input" data-f="note" value="${esc(f.note)}" placeholder="(ถ้ามี)" />
+      <label class="fl" for="f-note">หมายเหตุ</label>
+      <input class="input" id="f-note" data-f="note" value="${esc(f.note)}" placeholder="(ถ้ามี)" />
     </div>
   </div>
 
   <div class="card" style="margin-bottom:16px">
     <div class="section-title">รายการ <button class="link" id="addRow">+ เพิ่มรายการ</button></div>
     ${rowsHtml}
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <div class="section-title">พัสดุ / เลขติดตาม (ไม่บังคับ) <button class="link" id="addShip">+ เพิ่มพัสดุ</button></div>
+    ${f.shipments.length ? shipHtml : `<p class="faint" style="font-size:.82rem">ใบแจ้งหนี้หนึ่งใบรองรับหลายพัสดุ (multi-shipment)</p>`}
   </div>
 
   <div class="card" style="margin-bottom:16px">
@@ -317,24 +387,21 @@ function formView(){
   `;
 }
 
-// totals block — re-rendered surgically on every keystroke (does NOT touch inputs)
 function totalsInner(f){
   const t = taxOf(f.jobType), tot = computeTotals(f);
   return `
       <div class="totrow"><span class="muted">ยอดก่อนภาษี (Subtotal)</span><span class="calc tnum">${formatBaht(tot.subtotalSatang)}</span></div>
       <div class="totrow"><span class="muted">VAT ${t&&t.vatApplicable?'('+pct(t.vatRate)+'%)':'(ยกเว้น)'}</span><span class="calc tnum">+ ${formatBaht(tot.vatSatang)}</span></div>
       <div class="totrow"><span class="muted">หัก ณ ที่จ่าย (${t?pct(t.whtRate):'0'}%)</span><span class="calc tnum">- ${formatBaht(tot.whtSatang)}</span></div>
-      <div class="net"><span style="font-weight:600">ยอดชำระสุทธิ (Net)</span><b class="tnum">${formatBaht(tot.netSatang)} ฿</b></div>
+      <div class="net"><span style="font-weight:600">ยอดชำระสุทธิ (Net)</span><b class="tnum" aria-live="polite">${formatBaht(tot.netSatang)} ฿</b></div>
       <p class="faint" style="text-align:right;font-size:.72rem;margin:.4rem 0 0">ระบบคำนวณให้อัตโนมัติ — แก้ไขไม่ได้</p>`;
 }
-
-// issue/draft bar + poka-yoke blockers — also re-rendered surgically
 function issueBarInner(f){
   const blockers = issueBlockers(f);
   return `
   ${f.error ? `<p style="color:#c0392b;font-size:.88rem">${esc(f.error)}</p>`:``}
-  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">
-    <span class="faint" style="font-size:.78rem">${blockers.length ? '⚠ ออกใบกำกับไม่ได้: '+blockers.length+' ข้อต้องแก้' : '✓ ผ่านเงื่อนไข มาตรา 86/4 — ออกได้'}</span>
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+    <span class="faint" role="status" style="font-size:.78rem">${blockers.length ? '⚠ ออกใบกำกับไม่ได้: '+blockers.length+' ข้อต้องแก้' : '✓ ผ่านเงื่อนไข มาตรา 86/4 — ออกได้'}</span>
     <div style="display:flex;gap:8px">
       <button class="btn btn-ghost" id="saveDraft">บันทึกฉบับร่าง</button>
       <button class="btn btn-primary" id="issueBtn" ${blockers.length?'disabled':''}>ออกใบกำกับภาษี</button>
@@ -343,43 +410,53 @@ function issueBarInner(f){
   ${blockers.length ? `<ul class="faint" style="font-size:.76rem;margin:.2rem 0 0;padding-left:1.2rem">${blockers.map(b=>`<li>${esc(b)}</li>`).join("")}</ul>`:``}`;
 }
 
-function listView(){
-  const inv = loadInvoices();
-  if(!inv.length) return `<h1 style="font-size:1.5rem;margin-bottom:8px">ใบแจ้งหนี้</h1>
-    <div class="card" style="text-align:center;color:var(--ink-soft);padding:48px">
-      ยังไม่มีใบแจ้งหนี้ — <button class="link" data-nav="new">สร้างใบแรก</button></div>`;
-  const rows = inv.slice().reverse().map(v => {
+/* ───────────────────────── list ─────────────────── */
+function invTable(list){
+  const rows = list.map(v => {
     const cust = customerOf(v.customerId);
-    const pill = v.status==="ISSUED" ? "pill-issued" : v.status==="PAID" ? "pill-paid" : "pill-draft";
-    const txt  = v.status==="ISSUED" ? "ออกแล้ว" : v.status==="PAID" ? "ชำระแล้ว" : "ฉบับร่าง";
-    return `<tr><td>${esc(v.number||"—")}</td><td>${esc(cust?cust.name:"")}</td><td>${esc(v.issueDate)}</td>
-      <td><span class="pill ${pill}">${txt}</span></td>
+    const st = displayStatus(v);
+    return `<tr><td>${esc(v.number||"—")}</td><td>${esc(cust?cust.name:"")}</td><td class="tnum">${esc(v.issueDate)}</td>
+      <td><span class="pill ${STATUS_PILL[st]}">${STATUS_TH[st]}</span></td>
       <td class="tnum" style="text-align:right">${formatBaht(v.netSatang)} ฿</td>
       <td style="text-align:right"><button class="link" data-open="${v.id}">ดู</button></td></tr>`;
   }).join("");
-  return `<h1 style="font-size:1.5rem;margin-bottom:14px">ใบแจ้งหนี้</h1>
-    <div class="card" style="padding:6px 12px"><table>
-      <thead><tr><th>เลขที่</th><th>ลูกค้า</th><th>วันที่</th><th>สถานะ</th><th style="text-align:right">ยอดสุทธิ</th><th></th></tr></thead>
-      <tbody>${rows}</tbody></table></div>`;
+  return `<table><thead><tr><th>เลขที่</th><th>ลูกค้า</th><th>วันที่</th><th>สถานะ</th><th style="text-align:right">ยอดสุทธิ</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+function listView(){
+  const inv = loadInvoices();
+  if(!inv.length) return `<h1 class="page">ใบแจ้งหนี้</h1>
+    <div class="card" style="text-align:center;color:var(--ink-soft);padding:48px">ยังไม่มีใบแจ้งหนี้ — <button class="link" data-nav="new">สร้างใบแรก</button></div>`;
+  return `<h1 class="page">ใบแจ้งหนี้</h1><div class="card" style="padding:6px 12px">${invTable(inv.slice().reverse())}</div>`;
 }
 
+/* ───────────────────────── issued / draft detail ─────────────────── */
 function issuedView(){
   const v = state.issuedInvoice;
   if(!v) return listView();
   const cust = customerOf(v.customerId);
   const t = taxOf(v.jobType);
+  const st = displayStatus(v);
+  const isDraft = v.status === "DRAFT";
   const items = v.rows.filter(r=>r.description.trim()||((parseFloat(r.price)||0)>0));
   const itemRows = items.map(r=>{
-    const line = Math.round(bahtToSatang(parseFloat(r.price)||0)*(parseFloat(r.qty)||0));
+    const line = lineAmtSatang(r);
     return `<tr><td>${esc(r.description||"—")}</td><td class="tnum" style="text-align:right">${esc(r.qty)}</td>
       <td class="tnum" style="text-align:right">${formatBaht(bahtToSatang(parseFloat(r.price)||0))}</td>
       <td class="tnum" style="text-align:right">${formatBaht(line)}</td></tr>`;
   }).join("");
-  const isDraft = v.status === "DRAFT";
+  const ships = (v.shipments||[]).filter(s=>s.trackingNo && s.trackingNo.trim());
+
   const heading = isDraft
     ? `ใบแจ้งหนี้ (ฉบับร่าง) <span class="pill pill-draft">ร่าง</span>`
     : `ออกใบกำกับเรียบร้อย <span class="stamp">ISSUED ✓</span>`;
-  const whtCert = v.whtSatang > 0 ? `
+
+  const actions = isDraft
+    ? `<button class="btn btn-primary" data-edit="${v.id}">แก้ไข / ออกบิล</button>`
+    : `<button class="btn btn-primary" id="printBtn">⤓ บันทึก / พิมพ์ PDF</button>
+       ${st!=="PAID" ? `<button class="btn btn-ghost" data-paid="${v.id}">ทำเป็นชำระแล้ว</button>`:``}
+       <button class="btn btn-ghost" data-copy="${v.id}">ทำซ้ำ</button>`;
+
+  const whtCert = v.whtSatang > 0 && !isDraft ? `
   <div class="cert sheet" style="margin-top:18px">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:14px">
       <h2>หนังสือรับรองการหักภาษี ณ ที่จ่าย <span class="muted" style="font-weight:500;font-size:.82rem">(50 ทวิ)</span></h2>
@@ -391,12 +468,11 @@ function issuedView(){
     <div class="kv"><span class="muted">จำนวนเงินที่จ่าย (ฐานก่อน VAT)</span><span class="tnum">${formatBaht(v.subtotalSatang)} ฿</span></div>
     <div class="net"><span style="font-weight:600">ภาษีที่หักและนำส่ง (${t?pct(t.whtRate):'0'}%)</span><b class="tnum">${formatBaht(v.whtSatang)} ฿</b></div>
   </div>` : ``;
+
   return `
-  <div class="no-print" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+  <div class="no-print" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;flex-wrap:wrap">
     <h1 style="font-size:1.4rem">${heading}</h1>
-    <div style="display:flex;gap:8px">
-      ${isDraft?``:`<button class="btn btn-primary" id="printBtn">⤓ บันทึก / พิมพ์ PDF</button>`}
-      <button class="btn btn-ghost" data-nav="new">+ สร้างใบใหม่</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">${actions}
       <button class="btn btn-ghost" data-nav="list">ดูทั้งหมด</button>
     </div>
   </div>
@@ -411,6 +487,7 @@ function issuedView(){
         <p class="muted" style="font-size:.8rem;margin:0">เลขที่</p>
         <p style="font-weight:700;font-size:1.05rem;margin:.1rem 0">${esc(v.number)}</p>
         <p class="muted" style="font-size:.8rem;margin:.3rem 0 0">วันที่ ${esc(v.issueDate)}</p>
+        ${v.dueDate?`<p class="muted" style="font-size:.8rem;margin:.1rem 0 0">ครบกำหนด ${esc(v.dueDate)}</p>`:``}
       </div>
     </div>
     <div class="kv"><span class="muted">ลูกค้า</span><span style="font-weight:600">${esc(cust?cust.name:"")}</span></div>
@@ -420,13 +497,14 @@ function issuedView(){
       <thead><tr><th>รายการ</th><th style="text-align:right">จำนวน</th><th style="text-align:right">ราคา/หน่วย</th><th style="text-align:right">รวม</th></tr></thead>
       <tbody>${itemRows}</tbody>
     </table>
+    ${ships.length?`<div style="font-size:.82rem;margin-bottom:12px"><span class="muted">พัสดุ:</span> ${ships.map(s=>esc(s.trackingNo)+(s.note?` (${esc(s.note)})`:'')).join(", ")}</div>`:``}
     <div class="totbox">
       <div class="totrow"><span class="muted">ยอดก่อนภาษี</span><span class="tnum">${formatBaht(v.subtotalSatang)}</span></div>
       <div class="totrow"><span class="muted">VAT ${t&&t.vatApplicable?'('+pct(t.vatRate)+'%)':'(ยกเว้น)'}</span><span class="tnum">+ ${formatBaht(v.vatSatang)}</span></div>
       <div class="totrow"><span class="muted">หัก ณ ที่จ่าย (${t?pct(t.whtRate):'0'}%)</span><span class="tnum">- ${formatBaht(v.whtSatang)}</span></div>
       <div class="net"><span style="font-weight:600">ยอดชำระสุทธิ</span><b class="tnum">${formatBaht(v.netSatang)} ฿</b></div>
     </div>
-    ${v.whtSatang>0?`<p class="ok no-print" style="font-size:.8rem;margin-top:14px">✓ ออกหนังสือรับรองหัก ณ ที่จ่าย (50 ทวิ) อัตโนมัติ — หัก ${formatBaht(v.whtSatang)} ฿ (ดูด้านล่าง)</p>`:``}
+    ${v.whtSatang>0 && !isDraft?`<p class="ok no-print" style="font-size:.8rem;margin-top:14px">✓ ออกหนังสือรับรองหัก ณ ที่จ่าย (50 ทวิ) อัตโนมัติ — หัก ${formatBaht(v.whtSatang)} ฿ (ดูด้านล่าง)</p>`:``}
   </div>
   ${whtCert}
   </div>
@@ -434,102 +512,223 @@ function issuedView(){
   `;
 }
 
-/* ───────────────────────── events ─────────────────── */
-function bind(){
-  // login
-  const lb = document.getElementById("loginBtn");
-  if(lb) lb.onclick = () => { localStorage.setItem("sendo-demo-auth","1"); state.auth = true; state.view = "new"; state.form = blankForm(); render(); };
-
-  // nav (top tabs + inline)
-  document.querySelectorAll("[data-nav]").forEach(el => el.onclick = () => {
-    state.view = el.dataset.nav; if(state.view==="new" && !state.form) state.form = blankForm(); render();
-  });
-  document.querySelectorAll("[data-open]").forEach(el => el.onclick = () => {
-    const v = loadInvoices().find(x => x.id === el.dataset.open);
-    if(v){ state.issuedInvoice = v; state.view = "issued"; render(); }
-  });
-  const pb = document.getElementById("printBtn"); if(pb) pb.onclick = () => window.print();
-
-  if(state.view !== "new" || !state.auth) return;
-  const f = state.form;
-
-  // top-level fields
-  document.querySelectorAll("[data-f]").forEach(el => {
-    el.oninput = el.onchange = () => { f[el.dataset.f] = el.value; if(el.dataset.f==="customerId"||el.dataset.f==="jobType") render(); };
-  });
-  // row fields — text/number inputs update LIVE without a full re-render (keeps focus + cursor);
-  // only the pricing-mode <select> needs a structural re-render (its placeholders change).
-  document.querySelectorAll("[data-r]").forEach(el => {
-    const i = +el.dataset.r, k = el.dataset.k;
-    if(k === "mode"){ el.onchange = () => { f.rows[i].mode = el.value; render(); }; return; }
-    el.oninput = () => { f.rows[i][k] = el.value; refreshLive(); };
-  });
-  // service picker
-  document.querySelectorAll("[data-svc]").forEach(el => {
-    el.onchange = () => {
-      const s = SERVICES.find(x => x.id === el.value); if(!s) return;
-      const i = +el.dataset.svc;
-      f.rows[i].description = s.name; f.rows[i].price = String(s.defaultUnitPriceBaht);
-      f.jobType = s.defaultJobType; render();
-    };
-  });
-  document.querySelectorAll("[data-del]").forEach(el => el.onclick = () => {
-    const i = +el.dataset.del; if(f.rows.length>1) f.rows.splice(i,1); render();
-  });
-  const ar = document.getElementById("addRow"); if(ar) ar.onclick = () => { f.rows.push(blankRow()); render(); };
-
-  bindIssueBar();
+/* ───────────────────────── reports (monthly tax summary + CSV) ─────────────────── */
+const TH_MONTHS = ["","ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+function monthlySummary(year){
+  const rows = Array.from({length:12},(_,i)=>({month:i+1,label:TH_MONTHS[i+1],count:0,subtotalSatang:0,vatSatang:0,whtSatang:0,netSatang:0}));
+  for(const v of loadInvoices()){
+    if(v.status === "DRAFT" || !v.issueDate) continue;
+    const d = new Date(v.issueDate);
+    if(d.getFullYear() !== year) continue;
+    const r = rows[d.getMonth()];
+    r.count++; r.subtotalSatang+=v.subtotalSatang; r.vatSatang+=v.vatSatang; r.whtSatang+=v.whtSatang; r.netSatang+=v.netSatang;
+  }
+  return rows;
+}
+function availableYears(){
+  const ys = new Set(loadInvoices().filter(v=>v.status!=="DRAFT"&&v.issueDate).map(v=>new Date(v.issueDate).getFullYear()));
+  ys.add(new Date().getFullYear());
+  return [...ys].sort((a,b)=>b-a);
+}
+function reportsView(){
+  const year = state.reportYear;
+  const rows = monthlySummary(year);
+  const tot = rows.reduce((a,r)=>({count:a.count+r.count,subtotalSatang:a.subtotalSatang+r.subtotalSatang,vatSatang:a.vatSatang+r.vatSatang,whtSatang:a.whtSatang+r.whtSatang,netSatang:a.netSatang+r.netSatang}),{count:0,subtotalSatang:0,vatSatang:0,whtSatang:0,netSatang:0});
+  const yearOpts = availableYears().map(y=>`<option value="${y}" ${y===year?'selected':''}>${y}</option>`).join("");
+  const body = rows.filter(r=>r.count>0).map(r=>`<tr>
+    <td>${r.label}</td><td class="tnum" style="text-align:right">${r.count}</td>
+    <td class="tnum" style="text-align:right">${formatBaht(r.subtotalSatang)}</td>
+    <td class="tnum" style="text-align:right">${formatBaht(r.vatSatang)}</td>
+    <td class="tnum" style="text-align:right">${formatBaht(r.whtSatang)}</td>
+    <td class="tnum" style="text-align:right">${formatBaht(r.netSatang)}</td></tr>`).join("")
+    || `<tr><td colspan="6" class="muted" style="text-align:center;padding:24px">ยังไม่มีเอกสารที่ออกในปีนี้</td></tr>`;
+  return `
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:10px;flex-wrap:wrap">
+    <h1 style="font-size:1.5rem">รายงานภาษีรายเดือน</h1>
+    <div style="display:flex;gap:8px;align-items:center">
+      <label class="fl" for="ryear" style="margin:0">ปี</label>
+      <select class="input" id="ryear" style="width:auto">${yearOpts}</select>
+      <button class="btn btn-ghost" id="csvBtn">⤓ Export CSV</button>
+    </div>
+  </div>
+  <p class="muted" style="font-size:.82rem;margin:-6px 0 14px">VAT ขาออก = ภ.พ.30 · หัก ณ ที่จ่าย = ภ.ง.ด.3/53 · ไม่รวมฉบับร่าง</p>
+  <div class="card" style="padding:6px 12px"><table>
+    <thead><tr><th>เดือน</th><th style="text-align:right">จำนวนใบ</th><th style="text-align:right">ยอดก่อนภาษี</th><th style="text-align:right">VAT</th><th style="text-align:right">หัก ณ ที่จ่าย</th><th style="text-align:right">สุทธิ</th></tr></thead>
+    <tbody>${body}</tbody>
+    <tfoot><tr><td>รวมทั้งปี</td><td class="tnum" style="text-align:right">${tot.count}</td>
+      <td class="tnum" style="text-align:right">${formatBaht(tot.subtotalSatang)}</td>
+      <td class="tnum" style="text-align:right">${formatBaht(tot.vatSatang)}</td>
+      <td class="tnum" style="text-align:right">${formatBaht(tot.whtSatang)}</td>
+      <td class="tnum" style="text-align:right">${formatBaht(tot.netSatang)}</td></tr></tfoot>
+  </table></div>`;
+}
+function exportCsv(){
+  const year = state.reportYear;
+  const rows = monthlySummary(year);
+  const head = ["month","count","subtotal_baht","vat_baht","wht_baht","net_baht"];
+  const lines = [head.join(",")];
+  for(const r of rows){
+    lines.push([r.label, r.count, (r.subtotalSatang/100).toFixed(2), (r.vatSatang/100).toFixed(2), (r.whtSatang/100).toFixed(2), (r.netSatang/100).toFixed(2)].join(","));
+  }
+  const blob = new Blob(["﻿"+lines.join("\n")], {type:"text/csv;charset=utf-8"}); // BOM for Excel Thai
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = `sendo-tax-report-${year}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
 }
 
-// (re)attach handlers for the issue/draft buttons — their container is replaced on refreshLive()
-function bindIssueBar(){
-  const f = state.form;
-  const sd = document.getElementById("saveDraft"); if(sd) sd.onclick = () => persist("DRAFT");
-  const ib = document.getElementById("issueBtn");  if(ib) ib.onclick  = () => {
-    if(issueBlockers(f).length) return; // button is disabled anyway; guard for safety
-    persist("ISSUED");
-  };
+/* ───────────────────────── settings (edit tax rates) ─────────────────── */
+function settingsView(){
+  const rows = TAX.map(t=>`<tr>
+    <td>${esc(t.label)}<div class="faint" style="font-size:.72rem">${t.jobType}</div></td>
+    <td style="text-align:center">
+      <select class="input" data-rate="${t.jobType}" data-rk="vatApplicable" style="width:auto;margin:auto">
+        <option value="true" ${t.vatApplicable?'selected':''}>คิด VAT</option>
+        <option value="false" ${!t.vatApplicable?'selected':''}>ยกเว้น</option>
+      </select>
+    </td>
+    <td style="text-align:right"><input class="input tnum" data-rate="${t.jobType}" data-rk="vatRate" type="number" step="0.5" min="0" style="width:90px;text-align:right" value="${(t.vatRate*100)}" /> %</td>
+    <td style="text-align:right"><input class="input tnum" data-rate="${t.jobType}" data-rk="whtRate" type="number" step="0.5" min="0" style="width:90px;text-align:right" value="${(t.whtRate*100)}" /> %</td>
+  </tr>`).join("");
+  return `
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:10px;flex-wrap:wrap">
+    <h1 style="font-size:1.5rem">ตั้งค่าอัตราภาษี</h1>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost" id="resetRates">คืนค่าเริ่มต้น</button>
+      <button class="btn btn-primary" id="saveRates">บันทึก</button>
+    </div>
+  </div>
+  <p class="muted" style="font-size:.82rem;margin:0 0 14px">ประเภทงานเป็นตัวขับอัตราภาษี (poka-yoke) — ตั้งที่นี่ที่เดียว แล้วฟอร์มสร้างบิลคำนวณให้อัตโนมัติ</p>
+  <div class="card" style="padding:6px 12px"><table>
+    <thead><tr><th>ประเภทงาน</th><th style="text-align:center">VAT</th><th style="text-align:right">อัตรา VAT</th><th style="text-align:right">หัก ณ ที่จ่าย</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>
+  <p id="settingsMsg" role="status" class="ok" style="font-size:.82rem;margin-top:12px;min-height:1em"></p>`;
 }
 
-// Surgical live update on keystrokes: refresh totals, per-line amounts, and the issue bar
-// WITHOUT rebuilding the inputs the user is typing in.
-function refreshLive(){
-  const f = state.form;
-  const tEl = document.getElementById("totals");   if(tEl) tEl.innerHTML = totalsInner(f);
-  const bEl = document.getElementById("issuebar"); if(bEl){ bEl.innerHTML = issueBarInner(f); bindIssueBar(); }
-  f.rows.forEach((r,i) => {
-    const c = document.querySelector(`[data-amt="${i}"]`);
-    if(c) c.textContent = formatBaht(lineAmtSatang(r));
-  });
-}
-
+/* ───────────────────────── persistence ─────────────────── */
 function nextNumber(status){
-  const all = loadInvoices();
   if(status === "DRAFT") return "(ร่าง)";
-  // atomic-ish running number per year — IV-YYYY-#### (demo)
   const yr = new Date().getFullYear();
-  const n = all.filter(v => v.status !== "DRAFT").length + 1;
+  const n = loadInvoices().filter(v => v.status !== "DRAFT").length + 1;
   return `IV-${yr}-${String(n).padStart(4,"0")}`;
 }
 function persist(status){
   const f = state.form;
   const tot = computeTotals(f);
   const inv = {
-    id: "id-"+Date.now(),
+    id: f.id || ("id-"+Date.now()),
     number: nextNumber(status),
     status,
-    customerId: f.customerId,
-    jobType: f.jobType,
-    issueDate: f.issueDate,
-    dueDate: f.dueDate,
-    note: f.note,
-    rows: f.rows,
+    customerId: f.customerId, jobType: f.jobType,
+    issueDate: f.issueDate, dueDate: f.dueDate, note: f.note,
+    rows: f.rows, shipments: f.shipments.filter(s=>s.trackingNo && s.trackingNo.trim()),
     ...tot,
   };
-  const all = loadInvoices(); all.push(inv); saveInvoices(all);
+  let all = loadInvoices();
+  if(f.id){ all = all.map(v => v.id === f.id ? inv : v); } else { all.push(inv); }
+  saveInvoices(all);
   state.form = blankForm();
   if(status === "ISSUED"){ state.issuedInvoice = inv; state.view = "issued"; }
   else { state.view = "list"; }
+  render();
+}
+
+/* ───────────────────────── events ─────────────────── */
+function bind(){
+  const lb = document.getElementById("loginBtn");
+  if(lb) lb.onclick = () => { localStorage.setItem("sendo-demo-auth","1"); state.auth = true; state.view = "dashboard"; render(); };
+  const lo = document.getElementById("logout");
+  if(lo) lo.onclick = () => { localStorage.removeItem("sendo-demo-auth"); state.auth = false; render(); };
+
+  document.querySelectorAll("[data-nav]").forEach(el => el.onclick = () => {
+    state.view = el.dataset.nav; if(state.view==="new" && !state.form) state.form = blankForm(); render();
+  });
+  document.querySelectorAll("[data-open]").forEach(el => el.onclick = () => openInvoice(el.dataset.open));
+  document.querySelectorAll("[data-edit]").forEach(el => el.onclick = () => editDraft(el.dataset.edit));
+  document.querySelectorAll("[data-copy]").forEach(el => el.onclick = () => copyInvoice(el.dataset.copy));
+  document.querySelectorAll("[data-paid]").forEach(el => el.onclick = () => markPaid(el.dataset.paid));
+  const pb = document.getElementById("printBtn"); if(pb) pb.onclick = () => window.print();
+
+  if(state.view === "reports"){
+    const ry = document.getElementById("ryear"); if(ry) ry.onchange = () => { state.reportYear = +ry.value; render(); };
+    const cb = document.getElementById("csvBtn"); if(cb) cb.onclick = exportCsv;
+  }
+  if(state.view === "settings") bindSettings();
+  if(state.view === "new" && state.auth) bindForm();
+}
+
+function bindForm(){
+  const f = state.form;
+  document.querySelectorAll("[data-f]").forEach(el => {
+    el.oninput = el.onchange = () => { f[el.dataset.f] = el.value; if(el.dataset.f==="customerId"||el.dataset.f==="jobType") render(); };
+  });
+  document.querySelectorAll("[data-r]").forEach(el => {
+    const i = +el.dataset.r, k = el.dataset.k;
+    if(k === "mode"){ el.onchange = () => { f.rows[i].mode = el.value; render(); }; return; }
+    el.oninput = () => { f.rows[i][k] = el.value; refreshLive(); };
+  });
+  document.querySelectorAll("[data-svc]").forEach(el => el.onchange = () => {
+    const s = SERVICES.find(x => x.id === el.value); if(!s) return;
+    const i = +el.dataset.svc;
+    f.rows[i].description = s.name; f.rows[i].price = String(s.defaultUnitPriceBaht); f.jobType = s.defaultJobType; render();
+  });
+  document.querySelectorAll("[data-del]").forEach(el => el.onclick = () => { const i=+el.dataset.del; if(f.rows.length>1) f.rows.splice(i,1); render(); });
+  const ar = document.getElementById("addRow"); if(ar) ar.onclick = () => { f.rows.push(blankRow()); render(); };
+
+  document.querySelectorAll("[data-ship]").forEach(el => { const i=+el.dataset.ship, k=el.dataset.sk; el.oninput = () => { f.shipments[i][k] = el.value; }; });
+  document.querySelectorAll("[data-shipdel]").forEach(el => el.onclick = () => { f.shipments.splice(+el.dataset.shipdel,1); render(); });
+  const as = document.getElementById("addShip"); if(as) as.onclick = () => { f.shipments.push({trackingNo:"",note:""}); render(); };
+
+  bindIssueBar();
+}
+function bindIssueBar(){
+  const f = state.form;
+  const sd = document.getElementById("saveDraft"); if(sd) sd.onclick = () => persist("DRAFT");
+  const ib = document.getElementById("issueBtn");  if(ib) ib.onclick  = () => { if(issueBlockers(f).length) return; persist("ISSUED"); };
+}
+function refreshLive(){
+  const f = state.form;
+  const tEl = document.getElementById("totals");   if(tEl) tEl.innerHTML = totalsInner(f);
+  const bEl = document.getElementById("issuebar"); if(bEl){ bEl.innerHTML = issueBarInner(f); bindIssueBar(); }
+  f.rows.forEach((r,i) => { const c = document.querySelector(`[data-amt="${i}"]`); if(c) c.textContent = formatBaht(lineAmtSatang(r)); });
+}
+
+function bindSettings(){
+  const draft = JSON.parse(JSON.stringify(TAX));
+  const byJob = Object.fromEntries(draft.map(t=>[t.jobType,t]));
+  document.querySelectorAll("[data-rate]").forEach(el => el.oninput = el.onchange = () => {
+    const t = byJob[el.dataset.rate]; const k = el.dataset.rk;
+    if(k === "vatApplicable") t.vatApplicable = el.value === "true";
+    else t[k] = (parseFloat(el.value)||0) / 100;
+  });
+  const save = document.getElementById("saveRates");
+  if(save) save.onclick = () => {
+    const ov = {}; draft.forEach(t => ov[t.jobType] = {vatRate:t.vatRate, whtRate:t.whtRate, vatApplicable:t.vatApplicable});
+    localStorage.setItem("sendo-demo-rates", JSON.stringify(ov));
+    TAX = loadRates();
+    const m = document.getElementById("settingsMsg"); if(m) m.textContent = "✓ บันทึกแล้ว — ฟอร์มสร้างบิลจะใช้อัตราใหม่";
+  };
+  const reset = document.getElementById("resetRates");
+  if(reset) reset.onclick = () => { localStorage.removeItem("sendo-demo-rates"); TAX = loadRates(); render(); };
+}
+
+function openInvoice(id){ const v = loadInvoices().find(x=>x.id===id); if(v){ state.issuedInvoice=v; state.view="issued"; render(); } }
+function editDraft(id){
+  const v = loadInvoices().find(x=>x.id===id); if(!v) return;
+  state.form = { id:v.id, customerId:v.customerId, jobType:v.jobType, issueDate:v.issueDate, dueDate:v.dueDate, note:v.note,
+    rows:v.rows.map(r=>({...r})), shipments:(v.shipments||[]).map(s=>({...s})), error:"" };
+  state.view = "new"; render();
+}
+function copyInvoice(id){
+  const v = loadInvoices().find(x=>x.id===id); if(!v) return;
+  state.form = { id:null, customerId:v.customerId, jobType:v.jobType, issueDate:today(), dueDate:"", note:v.note,
+    rows:v.rows.map(r=>({...r})), shipments:(v.shipments||[]).map(s=>({...s})), error:"" };
+  state.view = "new"; render();
+}
+function markPaid(id){
+  const all = loadInvoices().map(v => v.id===id ? {...v, status:"PAID"} : v);
+  saveInvoices(all);
+  state.issuedInvoice = all.find(v=>v.id===id);
   render();
 }
 
