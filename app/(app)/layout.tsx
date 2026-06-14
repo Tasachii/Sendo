@@ -28,6 +28,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               <NavLink href="/customers">ลูกค้า</NavLink>
               <NavLink href="/services">รายการบริการ</NavLink>
               <NavLink href="/reports">รายงานภาษี</NavLink>
+              <NavLink href="/audit">ประวัติ</NavLink>
               <NavLink href="/settings">ตั้งค่าภาษี</NavLink>
             </nav>
           </div>
@@ -46,6 +47,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <NavLink href="/customers">ลูกค้า</NavLink>
           <NavLink href="/services">บริการ</NavLink>
           <NavLink href="/reports">รายงาน</NavLink>
+          <NavLink href="/audit">ประวัติ</NavLink>
           <NavLink href="/settings">ภาษี</NavLink>
         </nav>
       </header>
