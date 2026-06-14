@@ -97,6 +97,16 @@
   .section-title{font-size:.95rem;font-weight:600;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center}
   .foot{color:var(--ink-faint);font-size:.78rem;text-align:center;padding:28px 0 40px}
   .foot a{font-weight:600}
+
+  /* print → Save as PDF: show only the document(s), drop all app chrome */
+  @media print{
+    .topbar,.foot,.no-print{display:none!important}
+    body{background:#fff}
+    .wrap{max-width:none;padding:0}
+    .print-area{padding:0}
+    .sheet,.cert{border:none;border-radius:0;padding:0 0 12px}
+    .cert{page-break-before:always}
+  }
 </style>
 </head>
 <body>
@@ -369,14 +379,28 @@ function issuedView(){
   const heading = isDraft
     ? `ใบแจ้งหนี้ (ฉบับร่าง) <span class="pill pill-draft">ร่าง</span>`
     : `ออกใบกำกับเรียบร้อย <span class="stamp">ISSUED ✓</span>`;
+  const whtCert = v.whtSatang > 0 ? `
+  <div class="cert sheet" style="margin-top:18px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:14px">
+      <h2>หนังสือรับรองการหักภาษี ณ ที่จ่าย <span class="muted" style="font-weight:500;font-size:.82rem">(50 ทวิ)</span></h2>
+      <span class="muted" style="font-size:.8rem">อ้างอิงใบกำกับ ${esc(v.number)}</span>
+    </div>
+    <div class="kv"><span class="muted">ผู้จ่ายเงิน / ผู้มีหน้าที่หักภาษี</span><span style="font-weight:600">${esc(cust?cust.name:"")}${cust&&cust.taxId?` · ${esc(cust.taxId)}`:``}</span></div>
+    <div class="kv"><span class="muted">ผู้ถูกหักภาษี (ผู้รับเงิน)</span><span>${esc(COMPANY.name)} · ${esc(COMPANY.taxId)}</span></div>
+    <div class="kv"><span class="muted">ประเภทเงินได้</span><span>${esc(t?t.label:"")}</span></div>
+    <div class="kv"><span class="muted">จำนวนเงินที่จ่าย (ฐานก่อน VAT)</span><span class="tnum">${formatBaht(v.subtotalSatang)} ฿</span></div>
+    <div class="net"><span style="font-weight:600">ภาษีที่หักและนำส่ง (${t?pct(t.whtRate):'0'}%)</span><b class="tnum">${formatBaht(v.whtSatang)} ฿</b></div>
+  </div>` : ``;
   return `
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+  <div class="no-print" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
     <h1 style="font-size:1.4rem">${heading}</h1>
     <div style="display:flex;gap:8px">
+      ${isDraft?``:`<button class="btn btn-primary" id="printBtn">⤓ บันทึก / พิมพ์ PDF</button>`}
       <button class="btn btn-ghost" data-nav="new">+ สร้างใบใหม่</button>
       <button class="btn btn-ghost" data-nav="list">ดูทั้งหมด</button>
     </div>
   </div>
+  <div class="print-area">
   <div class="sheet">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:16px">
       <div>
@@ -402,9 +426,11 @@ function issuedView(){
       <div class="totrow"><span class="muted">หัก ณ ที่จ่าย (${t?pct(t.whtRate):'0'}%)</span><span class="tnum">- ${formatBaht(v.whtSatang)}</span></div>
       <div class="net"><span style="font-weight:600">ยอดชำระสุทธิ</span><b class="tnum">${formatBaht(v.netSatang)} ฿</b></div>
     </div>
-    ${v.whtSatang>0?`<p class="ok" style="font-size:.8rem;margin-top:14px">✓ ออกหนังสือรับรองหัก ณ ที่จ่าย (50 ทวิ) อัตโนมัติ — หัก ${formatBaht(v.whtSatang)} ฿</p>`:``}
+    ${v.whtSatang>0?`<p class="ok no-print" style="font-size:.8rem;margin-top:14px">✓ ออกหนังสือรับรองหัก ณ ที่จ่าย (50 ทวิ) อัตโนมัติ — หัก ${formatBaht(v.whtSatang)} ฿ (ดูด้านล่าง)</p>`:``}
   </div>
-  <p class="faint" style="font-size:.78rem;margin-top:12px">ในแอปจริง ปุ่มนี้จะสร้าง PDF ใบกำกับ + ใบ 50 ทวิ ด้วยฟอนต์ THSarabun และให้เลขที่แบบ atomic กันเลขซ้ำ</p>
+  ${whtCert}
+  </div>
+  <p class="faint no-print" style="font-size:.78rem;margin-top:12px">กด “บันทึก / พิมพ์ PDF” เพื่อบันทึกเป็นไฟล์ PDF ผ่านเบราว์เซอร์ · ในแอปจริงสร้าง PDF ด้วยฟอนต์ THSarabun + เลขที่แบบ atomic กันเลขซ้ำ</p>
   `;
 }
 
@@ -422,6 +448,7 @@ function bind(){
     const v = loadInvoices().find(x => x.id === el.dataset.open);
     if(v){ state.issuedInvoice = v; state.view = "issued"; render(); }
   });
+  const pb = document.getElementById("printBtn"); if(pb) pb.onclick = () => window.print();
 
   if(state.view !== "new" || !state.auth) return;
   const f = state.form;
