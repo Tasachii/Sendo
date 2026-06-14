@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sendo センド — เดโม (ใบกำกับภาษี + หัก ณ ที่จ่าย)</title>
+<meta name="description" content="เดโมเชิงโต้ตอบของ Sendo — ออกใบกำกับภาษีไทยแบบ poka-yoke ระบบคำนวณ VAT / หัก ณ ที่จ่าย / ยอดสุทธิ ให้อัตโนมัติ แก้ไขไม่ได้" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /* Sendo design system — 和 (wa): washi paper, sumi ink, hairlines, one 藍 indigo accent */
+  :root{
+    --paper:#faf8f3; --surface:#fff; --ink:#21201c; --ink-soft:#6c685f; --ink-faint:#9a958a;
+    --line:#e8e3d8; --line-strong:#d8d2c4; --accent:#3f4d7a; --accent-ink:#2c3760; --accent-wash:#eef0f6;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--paper); color:var(--ink);
+    font-family:"Noto Sans Thai",ui-sans-serif,system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; line-height:1.5;
+  }
+  ::selection{background:var(--accent-wash)}
+  h1,h2,h3{letter-spacing:-.01em;margin:0}
+  a{color:var(--accent);text-decoration:none}
+  .wrap{max-width:980px;margin:0 auto;padding:0 20px}
+  .tnum{font-variant-numeric:tabular-nums}
+
+  /* top bar */
+  .topbar{border-bottom:1px solid var(--line);background:rgba(255,255,255,.7);backdrop-filter:blur(8px);position:sticky;top:0;z-index:10}
+  .topbar .wrap{display:flex;align-items:center;gap:14px;height:60px}
+  .brand{font-weight:700;font-size:1.15rem;letter-spacing:.02em}
+  .brand small{color:var(--ink-faint);font-weight:500;font-size:.7rem;margin-left:6px;letter-spacing:.18em}
+  .badge-demo{margin-left:auto;font-size:.72rem;color:var(--accent);background:var(--accent-wash);padding:4px 10px;border-radius:999px;font-weight:600}
+  .nav{display:flex;gap:4px}
+  .nav button{font:inherit;font-size:.86rem;color:var(--ink-soft);background:none;border:0;padding:7px 12px;border-radius:8px;cursor:pointer}
+  .nav button:hover{background:#f1ede4;color:var(--ink)}
+  .nav button.on{color:var(--accent);background:var(--accent-wash);font-weight:600}
+
+  /* cards / inputs */
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:640px){.grid2{grid-template-columns:1fr}}
+  label.fl{display:block;margin-bottom:.3rem;font-size:.8rem;color:var(--ink-soft)}
+  .input{width:100%;background:var(--surface);border:1px solid var(--line-strong);border-radius:8px;padding:.5rem .7rem;color:var(--ink);font:inherit;outline:none;transition:border-color .15s,box-shadow .15s}
+  .input::placeholder{color:var(--ink-faint)}
+  .input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-wash)}
+  select.input{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236c685f' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right .6rem center;padding-right:1.8rem}
+  .hint{margin-top:.3rem;font-size:.74rem;color:var(--ink-faint)}
+  .warn{margin-top:.3rem;font-size:.74rem;color:#b4791f}
+
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;border-radius:8px;padding:.55rem 1rem;font:inherit;font-size:.9rem;font-weight:500;border:0;cursor:pointer;transition:background .15s,opacity .15s}
+  .btn:disabled{opacity:.5;cursor:default}
+  .btn-primary{background:var(--accent);color:#fff}
+  .btn-primary:hover:not(:disabled){background:var(--accent-ink)}
+  .btn-ghost{background:var(--surface);color:var(--ink);border:1px solid var(--line-strong)}
+  .btn-ghost:hover:not(:disabled){background:#f4f1ea}
+  .btn-quiet{background:transparent;color:var(--ink-soft)}
+  .btn-quiet:hover:not(:disabled){background:#f1ede4;color:var(--ink)}
+  .link{color:var(--accent);font-weight:500;background:none;border:0;font:inherit;cursor:pointer;padding:0}
+  .link:hover{text-decoration:underline}
+
+  /* calc field — read-only poka-yoke */
+  .calc{background:#f4f1ea;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:.1rem .5rem}
+
+  /* items */
+  .row{display:grid;grid-template-columns:1fr 130px 90px 120px 96px 28px;gap:8px;align-items:start}
+  @media(max-width:640px){.row{grid-template-columns:1fr 1fr;gap:6px}}
+  .muted{color:var(--ink-soft)} .faint{color:var(--ink-faint)}
+  .totbox{margin-left:auto;max-width:340px}
+  .totrow{display:flex;justify-content:space-between;align-items:center;font-size:.9rem;padding:3px 0}
+  .net{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding-top:10px;margin-top:6px}
+  .net b{font-size:1.4rem;color:var(--accent)}
+
+  /* table */
+  table{width:100%;border-collapse:collapse;font-size:.88rem}
+  th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line)}
+  th{font-size:.74rem;color:var(--ink-faint);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+  .pill{display:inline-block;font-size:.72rem;padding:2px 9px;border-radius:999px;font-weight:600}
+  .pill-draft{background:#f1ede4;color:var(--ink-soft)}
+  .pill-issued{background:#e7eddf;color:#5a6b3f}
+  .pill-paid{background:#e2ece6;color:#3f6b56}
+
+  /* login */
+  .center{min-height:calc(100vh - 60px);display:flex;align-items:center;justify-content:center;padding:24px}
+  .login{width:100%;max-width:380px;text-align:center}
+  .seal{width:54px;height:54px;border-radius:12px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:700;margin:0 auto 16px}
+
+  /* issued sheet */
+  .sheet{background:#fff;border:1px solid var(--line);border-radius:12px;padding:32px}
+  .sheet h2{font-size:1.05rem}
+  .kv{display:flex;justify-content:space-between;font-size:.86rem;padding:4px 0}
+  .stamp{display:inline-block;border:2px solid #5a6b3f;color:#5a6b3f;border-radius:8px;padding:4px 12px;font-weight:700;font-size:.8rem;transform:rotate(-4deg)}
+  .ok{color:#5a6b3f}
+
+  .section-title{font-size:.95rem;font-weight:600;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center}
+  .foot{color:var(--ink-faint);font-size:.78rem;text-align:center;padding:28px 0 40px}
+  .foot a{font-weight:600}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* ───────────────────────── tax engine — ported verbatim from lib/tax.ts + lib/money.ts ─────────────────── */
+const WHT_THRESHOLD_SATANG = 100_000; // no WHT below 1,000 baht
+const bahtToSatang = b => Math.round(b * 100);
+const roundSatang  = v => Math.floor(v + 0.5);            // round-half-up
+const formatBaht   = s => (s/100).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+function calcTax({subtotalSatang, vatRate, whtRate, vatApplicable, whtThresholdSatang = WHT_THRESHOLD_SATANG}){
+  const vatSatang = vatApplicable ? roundSatang(subtotalSatang * vatRate) : 0;
+  const whtSatang = subtotalSatang >= whtThresholdSatang ? roundSatang(subtotalSatang * whtRate) : 0;
+  const netSatang = subtotalSatang + vatSatang - whtSatang;
+  return {subtotalSatang, vatSatang, whtSatang, netSatang};
+}
+
+/* ───────────────────────── demo data (mirrors prisma/seed.ts) ─────────────────── */
+const COMPANY = { name:"บริษัท เซ็นโด ขนส่ง จำกัด", taxId:"0105560000001", address:"99/1 ถนนพระราม 9 แขวงห้วยขวาง เขตห้วยขวาง กรุงเทพฯ 10310" };
+
+// jobType drives the rates — exactly the TaxSetting rows from seed.ts
+const TAX = [
+  { jobType:"transport_only",    label:"ขนส่งล้วน (จดทะเบียนขนส่ง)", vatRate:0,    whtRate:0.01, vatApplicable:false },
+  { jobType:"transport_service", label:"ขนส่งพ่วงบริการ",            vatRate:0.07, whtRate:0.03, vatApplicable:true  },
+  { jobType:"service",           label:"ค่าบริการ / รับจ้างทำของ",   vatRate:0.07, whtRate:0.03, vatApplicable:true  },
+  { jobType:"rent",              label:"ค่าเช่า",                    vatRate:0.07, whtRate:0.05, vatApplicable:true  },
+  { jobType:"advertising",       label:"ค่าโฆษณา",                   vatRate:0.07, whtRate:0.02, vatApplicable:true  },
+  { jobType:"custom",            label:"กำหนดเอง",                   vatRate:0.07, whtRate:0.03, vatApplicable:true  },
+];
+const taxOf = jt => TAX.find(t => t.jobType === jt);
+
+const CUSTOMERS = [
+  { id:"a", name:"บริษัท ลูกค้าเอ จำกัด", isVatRegistered:true,  taxId:"0105556001234", hasAddress:true  },
+  { id:"b", name:"ร้านลูกค้าบี",            isVatRegistered:false, taxId:null,            hasAddress:true  },
+  { id:"c", name:"บริษัท ลูกค้าซี จำกัด (ข้อมูลไม่ครบ)", isVatRegistered:true,  taxId:null,  hasAddress:false }, // triggers poka-yoke
+];
+const customerOf = id => CUSTOMERS.find(c => c.id === id);
+
+const SERVICES = [
+  { id:"s1", name:"ค่าขนส่งสินค้า กรุงเทพฯ–เชียงใหม่", defaultJobType:"transport_only",    defaultUnitPriceBaht:10000 },
+  { id:"s2", name:"ค่าขนส่งพ่วงบริการแพ็คสินค้า",      defaultJobType:"transport_service", defaultUnitPriceBaht:5000  },
+  { id:"s3", name:"ค่าเช่ารถบรรทุกรายวัน",             defaultJobType:"rent",              defaultUnitPriceBaht:8000  },
+];
+
+const MODES = [
+  { mode:"FLAT",     label:"เหมา",        qtyLabel:"จำนวน", priceLabel:"ราคา/หน่วย" },
+  { mode:"WEIGHT",   label:"ตามน้ำหนัก",  qtyLabel:"กก.",   priceLabel:"บาท/กก." },
+  { mode:"DISTANCE", label:"ตามระยะทาง",  qtyLabel:"กม.",   priceLabel:"บาท/กม." },
+];
+const modeOf = m => MODES.find(x => x.mode === m);
+
+/* ───────────────────────── tiny state + helpers ─────────────────── */
+const LS = "sendo-demo-invoices";
+const loadInvoices = () => { try { return JSON.parse(localStorage.getItem(LS)) || []; } catch { return []; } };
+const saveInvoices = a => localStorage.setItem(LS, JSON.stringify(a));
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const today = () => new Date().toISOString().slice(0,10);
+const pct = n => (n*100).toFixed(0);
+
+let state = {
+  auth: false,
+  view: "new",            // new | list | issued
+  issuedInvoice: null,
+  form: null,
+};
+const blankRow = () => ({ description:"", qty:"1", price:"", mode:"FLAT" });
+function blankForm(){
+  return { customerId:"", jobType:TAX[0].jobType, issueDate:today(), dueDate:"", note:"", rows:[blankRow()], error:"" };
+}
+
+/* ───────────────────────── totals + poka-yoke validation ─────────────────── */
+function computeTotals(form){
+  const subtotalSatang = form.rows.reduce((s,r) => {
+    const qty = parseFloat(r.qty) || 0;
+    const price = bahtToSatang(parseFloat(r.price) || 0);
+    return s + Math.round(price * qty);
+  }, 0);
+  const t = taxOf(form.jobType);
+  if(!t) return {subtotalSatang, vatSatang:0, whtSatang:0, netSatang:subtotalSatang};
+  return calcTax({subtotalSatang, vatRate:t.vatRate, whtRate:t.whtRate, vatApplicable:t.vatApplicable});
+}
+// poka-yoke: cannot issue unless legally valid (มาตรา 86/4)
+function issueBlockers(form){
+  const out = [];
+  const cust = customerOf(form.customerId);
+  if(!cust) out.push("ยังไม่ได้เลือกลูกค้า");
+  const hasLine = form.rows.some(r => r.description.trim() && (parseFloat(r.price)||0) > 0);
+  if(!hasLine) out.push("ต้องมีรายการอย่างน้อย 1 บรรทัด (มีรายละเอียด + ราคา)");
+  if(cust){
+    if(cust.isVatRegistered && !cust.taxId) out.push("ลูกค้าจด VAT แต่ไม่มีเลขประจำตัวผู้เสียภาษี (มาตรา 86/4)");
+    if(!cust.hasAddress) out.push("ลูกค้าไม่มีที่อยู่ — ใบกำกับภาษีต้องมีที่อยู่ผู้ซื้อ");
+  }
+  return out;
+}
+
+/* ───────────────────────── render ─────────────────── */
+const app = () => document.getElementById("app");
+function render(){
+  if(!state.auth){ app().innerHTML = loginView(); bind(); return; }
+  app().innerHTML = topbar() + `<main class="wrap" style="padding-top:26px">` +
+    (state.view === "new" ? formView()
+     : state.view === "list" ? listView()
+     : issuedView()) +
+    `</main>` + footer();
+  bind();
+}
+
+function topbar(){
+  const tab = (id,txt) => `<button data-nav="${id}" class="${state.view===id?'on':''}">${txt}</button>`;
+  return `<header class="topbar"><div class="wrap">
+    <span class="brand">Sendo<small>センド</small></span>
+    <nav class="nav">${tab("new","สร้างใบแจ้งหนี้")}${tab("list","ใบแจ้งหนี้")}</nav>
+    <span class="badge-demo">เดโม</span>
+  </div></header>`;
+}
+function footer(){
+  return `<div class="wrap"><p class="foot">เดโมเชิงโต้ตอบ · เครื่องคำนวณภาษีคือโค้ดชุดเดียวกับแอปจริง (<code>lib/tax.ts</code>) · ข้อมูลเก็บในเบราว์เซอร์เท่านั้น<br>
+    <a href="https://github.com/Tasachii/Sendo">ดูซอร์สโค้ดบน GitHub →</a></p></div>`;
+}
+
+function loginView(){
+  return `<header class="topbar"><div class="wrap"><span class="brand">Sendo<small>センド</small></span><span class="badge-demo">เดโม</span></div></header>
+  <div class="center"><div class="login">
+    <div class="seal">セ</div>
+    <h1 style="font-size:1.4rem">เข้าสู่ระบบ</h1>
+    <p class="muted" style="margin:.4rem 0 22px;font-size:.9rem">ออกใบกำกับภาษี & หนังสือรับรองหัก ณ ที่จ่าย<br>สำหรับธุรกิจขนส่ง — ป้องกันการกรอกผิดด้วยดีไซน์</p>
+    <div class="card" style="text-align:left">
+      <label class="fl">อีเมล</label>
+      <input class="input" id="email" value="demo@sendo.test" />
+      <label class="fl" style="margin-top:12px">รหัสผ่าน</label>
+      <input class="input" id="pw" type="password" value="demo1234" />
+      <button class="btn btn-primary" id="loginBtn" style="width:100%;margin-top:18px">เข้าสู่ระบบ</button>
+      <p class="hint" style="text-align:center">บัญชีเดโมเติมไว้ให้แล้ว — กดเข้าสู่ระบบได้เลย</p>
+    </div>
+    <p class="foot" style="padding:18px 0 0">เดโมในเบราว์เซอร์ล้วน · <a href="https://github.com/Tasachii/Sendo">GitHub</a></p>
+  </div></div>`;
+}
+
+function formView(){
+  const f = state.form ||= blankForm();
+  const t = taxOf(f.jobType);
+  const cust = customerOf(f.customerId);
+  const tot = computeTotals(f);
+  const blockers = issueBlockers(f);
+
+  const custOpts = `<option value="" disabled ${f.customerId?'':'selected'}>— เลือกลูกค้า —</option>` +
+    CUSTOMERS.map(c => `<option value="${c.id}" ${f.customerId===c.id?'selected':''}>${esc(c.name)}</option>`).join("");
+  const jobOpts = TAX.map(x => `<option value="${x.jobType}" ${f.jobType===x.jobType?'selected':''}>${esc(x.label)}</option>`).join("");
+
+  const rowsHtml = f.rows.map((r,i) => {
+    const m = modeOf(r.mode);
+    const lineSatang = Math.round(bahtToSatang(parseFloat(r.price)||0) * (parseFloat(r.qty)||0));
+    const svcOpts = `<option value="" disabled selected>เลือกจากรายการบริการ…</option>` +
+      SERVICES.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join("");
+    const modeOpts = MODES.map(x => `<option value="${x.mode}" ${r.mode===x.mode?'selected':''}>${x.label}</option>`).join("");
+    return `<div class="row" style="margin-bottom:10px">
+      <div>
+        <input class="input" data-r="${i}" data-k="description" placeholder="รายละเอียด" value="${esc(r.description)}" />
+        <select class="input" data-svc="${i}" style="margin-top:5px;font-size:.78rem;color:var(--ink-soft);padding:.3rem .6rem">${svcOpts}</select>
+      </div>
+      <select class="input" data-r="${i}" data-k="mode" title="วิธีคิดราคา">${modeOpts}</select>
+      <input class="input tnum" data-r="${i}" data-k="qty" type="number" step="0.01" min="0" placeholder="${m.qtyLabel}" value="${esc(r.qty)}" />
+      <input class="input tnum" data-r="${i}" data-k="price" type="number" step="0.01" min="0" placeholder="${m.priceLabel}" value="${esc(r.price)}" />
+      <div class="tnum muted" style="text-align:right;padding-top:.55rem;font-size:.85rem">${formatBaht(lineSatang)}</div>
+      <button class="btn-quiet" data-del="${i}" style="padding:.4rem;color:var(--ink-faint)" title="ลบ">✕</button>
+    </div>`;
+  }).join("");
+
+  return `
+  <h1 style="font-size:1.5rem;margin-bottom:18px">สร้างใบแจ้งหนี้</h1>
+
+  <div class="card grid2" style="margin-bottom:16px">
+    <div>
+      <label class="fl">ลูกค้า *</label>
+      <select class="input" data-f="customerId">${custOpts}</select>
+      ${cust && cust.isVatRegistered && !cust.taxId ? `<p class="warn">ลูกค้าจด VAT แต่ยังไม่มีเลขผู้เสียภาษี — จะออกใบกำกับไม่ได้</p>`:``}
+      ${cust && !cust.hasAddress ? `<p class="warn">ลูกค้านี้ยังไม่มีที่อยู่ — จะออกใบกำกับไม่ได้</p>`:``}
+    </div>
+    <div>
+      <label class="fl">ประเภทงาน * (กำหนดอัตราภาษีอัตโนมัติ)</label>
+      <select class="input" data-f="jobType">${jobOpts}</select>
+      ${t ? `<p class="hint">VAT ${t.vatApplicable?pct(t.vatRate)+'%':'ยกเว้น'} · หัก ณ ที่จ่าย ${pct(t.whtRate)}%</p>`:``}
+    </div>
+    <div>
+      <label class="fl">วันที่ออก *</label>
+      <input class="input" type="date" data-f="issueDate" value="${esc(f.issueDate)}" />
+    </div>
+    <div>
+      <label class="fl">ครบกำหนดชำระ</label>
+      <input class="input" type="date" data-f="dueDate" value="${esc(f.dueDate)}" />
+    </div>
+    <div style="grid-column:1/-1">
+      <label class="fl">หมายเหตุ</label>
+      <input class="input" data-f="note" value="${esc(f.note)}" placeholder="(ถ้ามี)" />
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <div class="section-title">รายการ <button class="link" id="addRow">+ เพิ่มรายการ</button></div>
+    ${rowsHtml}
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <div class="totbox">
+      <div class="totrow"><span class="muted">ยอดก่อนภาษี (Subtotal)</span><span class="calc tnum">${formatBaht(tot.subtotalSatang)}</span></div>
+      <div class="totrow"><span class="muted">VAT ${t&&t.vatApplicable?'('+pct(t.vatRate)+'%)':'(ยกเว้น)'}</span><span class="calc tnum">+ ${formatBaht(tot.vatSatang)}</span></div>
+      <div class="totrow"><span class="muted">หัก ณ ที่จ่าย (${t?pct(t.whtRate):'0'}%)</span><span class="calc tnum">- ${formatBaht(tot.whtSatang)}</span></div>
+      <div class="net"><span style="font-weight:600">ยอดชำระสุทธิ (Net)</span><b class="tnum">${formatBaht(tot.netSatang)} ฿</b></div>
+      <p class="faint" style="text-align:right;font-size:.72rem;margin:.4rem 0 0">ระบบคำนวณให้อัตโนมัติ — แก้ไขไม่ได้</p>
+    </div>
+  </div>
+
+  ${f.error ? `<p style="color:#c0392b;font-size:.88rem">${esc(f.error)}</p>`:``}
+
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">
+    <span class="faint" style="font-size:.78rem">${blockers.length ? '⚠ ออกใบกำกับไม่ได้: '+blockers.length+' ข้อต้องแก้' : '✓ ผ่านเงื่อนไข มาตรา 86/4 — ออกได้'}</span>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost" id="saveDraft">บันทึกฉบับร่าง</button>
+      <button class="btn btn-primary" id="issueBtn" ${blockers.length?'disabled title="'+esc(blockers.join(' · '))+'"':''}>ออกใบกำกับภาษี</button>
+    </div>
+  </div>
+  ${blockers.length ? `<ul class="faint" style="font-size:.76rem;margin:.2rem 0 0;padding-left:1.2rem">${blockers.map(b=>`<li>${esc(b)}</li>`).join("")}</ul>`:``}
+  `;
+}
+
+function listView(){
+  const inv = loadInvoices();
+  if(!inv.length) return `<h1 style="font-size:1.5rem;margin-bottom:8px">ใบแจ้งหนี้</h1>
+    <div class="card" style="text-align:center;color:var(--ink-soft);padding:48px">
+      ยังไม่มีใบแจ้งหนี้ — <button class="link" data-nav="new">สร้างใบแรก</button></div>`;
+  const rows = inv.slice().reverse().map(v => {
+    const cust = customerOf(v.customerId);
+    const pill = v.status==="ISSUED" ? "pill-issued" : v.status==="PAID" ? "pill-paid" : "pill-draft";
+    const txt  = v.status==="ISSUED" ? "ออกแล้ว" : v.status==="PAID" ? "ชำระแล้ว" : "ฉบับร่าง";
+    return `<tr><td>${esc(v.number||"—")}</td><td>${esc(cust?cust.name:"")}</td><td>${esc(v.issueDate)}</td>
+      <td><span class="pill ${pill}">${txt}</span></td>
+      <td class="tnum" style="text-align:right">${formatBaht(v.netSatang)} ฿</td>
+      <td style="text-align:right"><button class="link" data-open="${v.id}">ดู</button></td></tr>`;
+  }).join("");
+  return `<h1 style="font-size:1.5rem;margin-bottom:14px">ใบแจ้งหนี้</h1>
+    <div class="card" style="padding:6px 12px"><table>
+      <thead><tr><th>เลขที่</th><th>ลูกค้า</th><th>วันที่</th><th>สถานะ</th><th style="text-align:right">ยอดสุทธิ</th><th></th></tr></thead>
+      <tbody>${rows}</tbody></table></div>`;
+}
+
+function issuedView(){
+  const v = state.issuedInvoice;
+  if(!v) return listView();
+  const cust = customerOf(v.customerId);
+  const t = taxOf(v.jobType);
+  const items = v.rows.filter(r=>r.description.trim()||((parseFloat(r.price)||0)>0));
+  const itemRows = items.map(r=>{
+    const line = Math.round(bahtToSatang(parseFloat(r.price)||0)*(parseFloat(r.qty)||0));
+    return `<tr><td>${esc(r.description||"—")}</td><td class="tnum" style="text-align:right">${esc(r.qty)}</td>
+      <td class="tnum" style="text-align:right">${formatBaht(bahtToSatang(parseFloat(r.price)||0))}</td>
+      <td class="tnum" style="text-align:right">${formatBaht(line)}</td></tr>`;
+  }).join("");
+  return `
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <h1 style="font-size:1.4rem">ออกใบกำกับเรียบร้อย <span class="stamp">ISSUED ✓</span></h1>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost" data-nav="new">+ สร้างใบใหม่</button>
+      <button class="btn btn-ghost" data-nav="list">ดูทั้งหมด</button>
+    </div>
+  </div>
+  <div class="sheet">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:16px">
+      <div>
+        <h2>ใบกำกับภาษี / ใบแจ้งหนี้</h2>
+        <p class="muted" style="font-size:.82rem;margin:.3rem 0 0">${esc(COMPANY.name)}<br>เลขประจำตัวผู้เสียภาษี ${esc(COMPANY.taxId)}<br>${esc(COMPANY.address)}</p>
+      </div>
+      <div style="text-align:right">
+        <p class="muted" style="font-size:.8rem;margin:0">เลขที่</p>
+        <p style="font-weight:700;font-size:1.05rem;margin:.1rem 0">${esc(v.number)}</p>
+        <p class="muted" style="font-size:.8rem;margin:.3rem 0 0">วันที่ ${esc(v.issueDate)}</p>
+      </div>
+    </div>
+    <div class="kv"><span class="muted">ลูกค้า</span><span style="font-weight:600">${esc(cust?cust.name:"")}</span></div>
+    ${cust&&cust.taxId?`<div class="kv"><span class="muted">เลขผู้เสียภาษี</span><span>${esc(cust.taxId)}</span></div>`:``}
+    <div class="kv"><span class="muted">ประเภทงาน</span><span>${esc(t?t.label:"")}</span></div>
+    <table style="margin:16px 0">
+      <thead><tr><th>รายการ</th><th style="text-align:right">จำนวน</th><th style="text-align:right">ราคา/หน่วย</th><th style="text-align:right">รวม</th></tr></thead>
+      <tbody>${itemRows}</tbody>
+    </table>
+    <div class="totbox">
+      <div class="totrow"><span class="muted">ยอดก่อนภาษี</span><span class="tnum">${formatBaht(v.subtotalSatang)}</span></div>
+      <div class="totrow"><span class="muted">VAT ${t&&t.vatApplicable?'('+pct(t.vatRate)+'%)':'(ยกเว้น)'}</span><span class="tnum">+ ${formatBaht(v.vatSatang)}</span></div>
+      <div class="totrow"><span class="muted">หัก ณ ที่จ่าย (${t?pct(t.whtRate):'0'}%)</span><span class="tnum">- ${formatBaht(v.whtSatang)}</span></div>
+      <div class="net"><span style="font-weight:600">ยอดชำระสุทธิ</span><b class="tnum">${formatBaht(v.netSatang)} ฿</b></div>
+    </div>
+    ${v.whtSatang>0?`<p class="ok" style="font-size:.8rem;margin-top:14px">✓ ออกหนังสือรับรองหัก ณ ที่จ่าย (50 ทวิ) อัตโนมัติ — หัก ${formatBaht(v.whtSatang)} ฿</p>`:``}
+  </div>
+  <p class="faint" style="font-size:.78rem;margin-top:12px">ในแอปจริง ปุ่มนี้จะสร้าง PDF ใบกำกับ + ใบ 50 ทวิ ด้วยฟอนต์ THSarabun และให้เลขที่แบบ atomic กันเลขซ้ำ</p>
+  `;
+}
+
+/* ───────────────────────── events ─────────────────── */
+function bind(){
+  // login
+  const lb = document.getElementById("loginBtn");
+  if(lb) lb.onclick = () => { state.auth = true; state.view = "new"; state.form = blankForm(); render(); };
+
+  // nav (top tabs + inline)
+  document.querySelectorAll("[data-nav]").forEach(el => el.onclick = () => {
+    state.view = el.dataset.nav; if(state.view==="new" && !state.form) state.form = blankForm(); render();
+  });
+  document.querySelectorAll("[data-open]").forEach(el => el.onclick = () => {
+    const v = loadInvoices().find(x => x.id === el.dataset.open);
+    if(v){ state.issuedInvoice = v; state.view = "issued"; render(); }
+  });
+
+  if(state.view !== "new" || !state.auth) return;
+  const f = state.form;
+
+  // top-level fields
+  document.querySelectorAll("[data-f]").forEach(el => {
+    el.oninput = el.onchange = () => { f[el.dataset.f] = el.value; if(el.dataset.f==="customerId"||el.dataset.f==="jobType") render(); };
+  });
+  // row fields
+  document.querySelectorAll("[data-r]").forEach(el => {
+    const i = +el.dataset.r, k = el.dataset.k;
+    el.oninput = el.onchange = () => { f.rows[i][k] = el.value; render(); };
+  });
+  // service picker
+  document.querySelectorAll("[data-svc]").forEach(el => {
+    el.onchange = () => {
+      const s = SERVICES.find(x => x.id === el.value); if(!s) return;
+      const i = +el.dataset.svc;
+      f.rows[i].description = s.name; f.rows[i].price = String(s.defaultUnitPriceBaht);
+      f.jobType = s.defaultJobType; render();
+    };
+  });
+  document.querySelectorAll("[data-del]").forEach(el => el.onclick = () => {
+    const i = +el.dataset.del; if(f.rows.length>1) f.rows.splice(i,1); render();
+  });
+  const ar = document.getElementById("addRow"); if(ar) ar.onclick = () => { f.rows.push(blankRow()); render(); };
+
+  const sd = document.getElementById("saveDraft"); if(sd) sd.onclick = () => persist("DRAFT");
+  const ib = document.getElementById("issueBtn");  if(ib) ib.onclick  = () => {
+    if(issueBlockers(f).length){ f.error = "ยังออกใบกำกับไม่ได้ — แก้ไขข้อที่ติดด้านล่างก่อน"; render(); return; }
+    persist("ISSUED");
+  };
+}
+
+function nextNumber(status){
+  const all = loadInvoices();
+  if(status === "DRAFT") return "(ร่าง)";
+  // atomic-ish running number per year — IV-YYYY-#### (demo)
+  const yr = new Date().getFullYear();
+  const n = all.filter(v => v.status !== "DRAFT").length + 1;
+  return `IV-${yr}-${String(n).padStart(4,"0")}`;
+}
+function persist(status){
+  const f = state.form;
+  const tot = computeTotals(f);
+  const inv = {
+    id: "id-"+Date.now(),
+    number: nextNumber(status),
+    status,
+    customerId: f.customerId,
+    jobType: f.jobType,
+    issueDate: f.issueDate,
+    dueDate: f.dueDate,
+    note: f.note,
+    rows: f.rows,
+    ...tot,
+  };
+  const all = loadInvoices(); all.push(inv); saveInvoices(all);
+  state.form = blankForm();
+  if(status === "ISSUED"){ state.issuedInvoice = inv; state.view = "issued"; }
+  else { state.view = "list"; }
+  render();
+}
+
+render();
+</script>
+</body>
+</html>
