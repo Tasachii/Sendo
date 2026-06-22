@@ -78,3 +78,52 @@ describe("computeTotals — multi-line subtotal rounding", () => {
     expect(totals.netSatang).toBe(53_500);
   });
 });
+
+describe("computeTotals — discounts (Biz108 parity)", () => {
+  it("subtracts a per-line baht discount from the line gross", () => {
+    // 1,000 baht line, 100 baht off → 900 baht net; 90,000 < threshold so no WHT
+    const t = computeTotals([{ description: "x", qty: 1, unitPriceBaht: 1000, discountBaht: 100 }], SETTING);
+    expect(t.items[0].discountSatang).toBe(10_000);
+    expect(t.items[0].lineTotalSatang).toBe(90_000);
+    expect(t.subtotalSatang).toBe(90_000);
+    expect(t.vatSatang).toBe(6_300);
+    expect(t.whtSatang).toBe(0);
+    expect(t.netSatang).toBe(96_300);
+  });
+
+  it("computes a per-line percentage discount off the line gross", () => {
+    const t = computeTotals([{ description: "x", qty: 1, unitPriceBaht: 1000, discountPct: 10 }], SETTING);
+    expect(t.items[0].discountSatang).toBe(10_000); // 10% of 100,000
+    expect(t.subtotalSatang).toBe(90_000);
+  });
+
+  it("prefers percentage over a flat baht amount when both are supplied", () => {
+    const t = computeTotals([{ description: "x", qty: 1, unitPriceBaht: 1000, discountPct: 10, discountBaht: 999 }], SETTING);
+    expect(t.items[0].discountSatang).toBe(10_000); // pct wins, not 99,900
+  });
+
+  it("applies a whole-document discount to the taxable base before VAT/WHT", () => {
+    // one 2,000-baht line, 500 baht off the bill → 1,500 base, crosses WHT threshold
+    const t = computeTotals([{ description: "x", qty: 1, unitPriceBaht: 2000 }], SETTING, { docDiscountBaht: 500 });
+    expect(t.docDiscountSatang).toBe(50_000);
+    expect(t.subtotalSatang).toBe(150_000);
+    expect(t.vatSatang).toBe(10_500); // 7% of 150,000
+    expect(t.whtSatang).toBe(4_500); // 3% of 150,000
+    expect(t.netSatang).toBe(156_000);
+  });
+
+  it("clamps a discount larger than the line/bill to zero (never negative)", () => {
+    const t = computeTotals([{ description: "x", qty: 1, unitPriceBaht: 100, discountBaht: 9999 }], SETTING);
+    expect(t.items[0].discountSatang).toBe(10_000); // clamped to the 10,000-satang gross
+    expect(t.items[0].lineTotalSatang).toBe(0);
+    expect(t.subtotalSatang).toBe(0);
+    expect(t.netSatang).toBe(0);
+  });
+
+  it("no discount inputs ⇒ identical to the pre-discount behaviour", () => {
+    const t = computeTotals([{ description: "x", qty: 2, unitPriceBaht: 333.33 }], SETTING);
+    expect(t.items[0].discountSatang).toBe(0);
+    expect(t.docDiscountSatang).toBe(0);
+    expect(t.subtotalSatang).toBe(66_666);
+  });
+});

@@ -120,7 +120,7 @@ describe("setInvoiceStatus — transition whitelist (A3)", () => {
     const inv = await makeInvoice("SENT");
     asUser({ role: "OWNER", companyId: otherCompanyId, userId: ownerId });
     const res = await setInvoiceStatus(inv.id, "PAID");
-    expect(res).toEqual({ ok: false, error: "ไม่พบใบแจ้งหนี้" });
+    expect(res).toEqual({ ok: false, error: "ไม่พบเอกสาร" });
   });
 });
 
@@ -205,7 +205,7 @@ describe("duplicateInvoice", () => {
   it("returns 'ไม่พบใบแจ้งหนี้' for a cross-tenant id", async () => {
     const src = await makeInvoice("SENT");
     asUser({ role: "OWNER", companyId: otherCompanyId, userId: ownerId });
-    expect(await duplicateInvoice(src.id)).toEqual({ ok: false, error: "ไม่พบใบแจ้งหนี้" });
+    expect(await duplicateInvoice(src.id)).toEqual({ ok: false, error: "ไม่พบเอกสาร" });
   });
 });
 
