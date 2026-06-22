@@ -1,76 +1,105 @@
-# Sendo センド。
+# Sendo（センド）— Thai logistics invoicing
 
-[![Live demo](https://img.shields.io/badge/▶_Live_demo-try_in_browser-3f4d7a?style=for-the-badge)](https://tasachii.github.io/Sendo/)
+[![Tests](https://img.shields.io/badge/tests-155_passed-4ade80?style=flat-square)](https://github.com/Tasachii/Sendo/actions)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
+[![CI](https://github.com/Tasachii/Sendo/actions/workflows/ci.yml/badge.svg)](https://github.com/Tasachii/Sendo/actions/workflows/ci.yml)
 
-> **[▶ เปิดเดโมเลย / Open the live demo](https://tasachii.github.io/Sendo/)** — runs entirely in your browser, no sign-up. The poka-yoke invoice flow with the *real* tax engine (`lib/tax.ts`); data stays in `localStorage`.
+Sendo is a multi-tenant web app for issuing Thai tax documents — full tax invoices (ใบกำกับภาษี) and withholding-tax certificates (ใบหัก ณ ที่จ่าย / 50 ทวิ) — built for logistics and transport companies. Pick a customer and a job type; the tax engine derives VAT, withholding tax, and net payable and renders them read-only, so nobody mistypes a total. Money is stored as integer satang (baht × 100) and every total is recomputed on the server on every save — a tampered request cannot change what is billed. The same data flows straight into the PDFs, and a document cannot be issued until it satisfies the eight mandatory fields of มาตรา 86/4. Each company's data is fully isolated behind structural tenant guards; the whole app runs on a single local SQLite file with no cloud account required.
 
-A multi-tenant web app for issuing Thai tax documents — full tax invoices (ใบกำกับภาษี) and
-withholding-tax certificates (ใบหัก ณ ที่จ่าย / 50 ทวิ) — built for logistics and transport
-companies. Pick a customer and a job type; the engine derives VAT, withholding tax, and the net
-payable and renders them read-only, so nobody mistypes a total. The same data flows straight into
-the PDFs, and an invoice cannot be issued until it is legally valid under มาตรา 86/4. Each company's
-data is fully isolated, and the whole thing runs on a single local SQLite file — no cloud account.
+**Live demo** — [tasachii.github.io/Sendo](https://tasachii.github.io/Sendo/) (client-only invoice flow; full app is server-based) · **Issues** — [github.com/Tasachii/Sendo/issues](https://github.com/Tasachii/Sendo/issues)
 
-**Demo login:** `demo@sendo.test` / `demo1234` after `npm run seed` (runs at `http://localhost:3000`).
+---
 
-**Two ways to try it:**
+## Screenshots
 
-1. **[Live demo (browser)](https://tasachii.github.io/Sendo/)** — instant, no install. A client-only build of the create-invoice flow (full app is server-based; this mirrors the UI + tax logic).
-2. **Full app** — one-click deploy to Render (free; real auth, DB, and server PDFs; demo data reseeds on each start). See [`DEPLOY.md`](DEPLOY.md).
-
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Tasachii/Sendo)
-
-| Dashboard — month / unpaid / overdue | Create invoice — live, read-only totals |
-|---|---|
+| Dashboard — month / unpaid / overdue | Create invoice — live read-only totals |
+| --- | --- |
 | ![Dashboard](docs/images/dashboard.png) | ![Create invoice](docs/images/invoice-new.png) |
 
 | Invoice list with statuses | Monthly tax report (ภ.พ.30 / ภ.ง.ด.) |
-|---|---|
+| --- | --- |
 | ![Invoices](docs/images/invoices.png) | ![Tax report](docs/images/reports.png) |
 
 | Poka-yoke blocks an invalid issue | Sign in |
-|---|---|
+| --- | --- |
 | ![Poka-yoke](docs/images/poka-yoke.png) | ![Login](docs/images/login.png) |
 
-## Why this exists
+---
 
-Logistics billing is where the expensive mistakes happen: the wrong withholding rate (1% for pure
-transport vs. 3% for transport-plus-service), VAT typed by hand, or a tax invoice missing a field the
-Revenue Department requires. Most teams do this in Excel and catch errors after the customer disputes
-them. Sendo follows **poka-yoke（ポカヨケ）** — prevent mistakes by design, not by catching them later:
-anything the system can compute is read-only, anything that must be chosen is a dropdown, and a
-document that breaks มาตรา 86/4 simply cannot be issued. One source of truth, recomputed on the server,
-feeds every document — so the invoice, the 50 ทวิ certificate, and the totals can never disagree.
+## What it is
 
-## Features
+Logistics billing is where the expensive mistakes happen: the wrong withholding rate (1% for pure transport vs. 3% for transport-plus-service), VAT typed by hand, or a tax invoice missing a field the Revenue Department requires. Most teams handle this in Excel and catch errors after the customer disputes them.
 
-### Tax & documents
-- A pure, unit-tested tax engine: VAT added on top, withholding tax subtracted from the **pre-VAT**
-  base, net = `(subtotal + vat) − wht`, with a 1,000-baht withholding threshold
-- Money stored as integer **satang** (baht × 100) — no floating-point rounding drift; round-half-up
-- Rates live per company in **ตั้งค่าภาษี** and are editable without a code change (seeded with the
-  common Thai defaults: ขนส่งล้วน 1% · ขนส่งพ่วงบริการ 3% · ค่าเช่า 5% · ค่าโฆษณา 2%)
-- One-click PDF export of the tax invoice, plus the **ใบหัก ณ ที่จ่าย (50 ทวิ)** whenever withholding
-  applies — both in the Sarabun government document font so Thai renders correctly offline
+Sendo follows **poka-yoke（ポカヨケ）** — ส่งบิล ถูกต้องตั้งแต่แรก — prevent mistakes by design, not by catching them later: anything the system can compute is read-only, anything that must be chosen is a dropdown, and a document that breaks มาตรา 86/4 simply cannot be issued.
 
-### Poka-yoke safeguards
-- VAT / WHT / net payable are computed and shown read-only on a grey field — never typed
-- Job type is a dropdown that drives the rates, so 1% and 3% can't be swapped by accident
-- Customer details (tax ID, address, branch) are entered once and reused on every invoice
-- Issuing runs the มาตรา 86/4 eight-field check; if anything is missing the action is blocked and the
-  missing items are listed in Thai
-- Invoice numbers `INV-{YYYY}-{0001}` come from an atomic counter — race-safe and never reused
+- **Stack** — Next.js 16 · React 19 · TypeScript · Prisma 6 · SQLite · NextAuth 4 · Tailwind v4 · Zod · @react-pdf/renderer · Vitest
 
-### Multi-tenant & roles
-- Register a company and an OWNER; every query is scoped to the signed-in user's `companyId`
-- Roles: OWNER, STAFF, and a read-only VIEWER
-- An append-only audit log records who issued, changed status, or deleted each invoice
+---
 
-### Workflow
-- Customer and reusable service CRUD; pick a saved service to fill a line item
-- Live totals on the create-invoice screen update as you type
-- Invoice list with status (ฉบับร่าง · ออกแล้ว · ชำระแล้ว · เกินกำหนด) and a detail page
-- Thai-language UI throughout, responsive down to mobile
+## Installation
+
+**Requirements** — [Node 20+](https://nodejs.org) (tested on Node 20 in CI; `node -v` to check)
+
+**Mac / Linux**
+```bash
+git clone https://github.com/Tasachii/Sendo.git
+cd Sendo
+cp .env.example .env          # then set NEXTAUTH_SECRET (openssl rand -base64 32)
+npm install                   # installs deps, runs prisma generate via postinstall
+npx prisma migrate dev        # create the local SQLite database
+npm run seed                  # load demo data (two companies)
+```
+
+**Windows**
+```bat
+git clone https://github.com/Tasachii/Sendo.git
+cd Sendo
+copy .env.example .env         :: then set NEXTAUTH_SECRET
+npm install                    :: installs deps, runs prisma generate via postinstall
+npx prisma migrate dev         :: create the local SQLite database
+npm run seed                   :: load demo data (two companies)
+```
+
+---
+
+## Running
+
+```bash
+npm run dev              # start the app on http://localhost:3000
+npm run build            # type-check + bundle every route (same step CI runs)
+npm start                # serve the production build locally
+npm run lint             # ESLint across the project
+npm test                 # Vitest — 155 tests across 16 files
+npm run test:coverage    # same suite + v8 coverage report (gates CI thresholds)
+npm run test:watch       # Vitest in watch mode
+npm run db:migrate       # prisma migrate dev — apply new migrations
+npm run db:push          # prisma db push — sync schema without a migration file
+npm run db:studio        # open Prisma Studio to inspect the database
+npm run seed             # reset demo data (two companies)
+```
+
+Demo accounts created by `npm run seed`:
+
+| Role | Email | Password |
+| --- | --- | --- |
+| Demo company (OWNER) | `demo@sendo.test` | `demo1234` |
+| Second tenant (proves isolation) | `other@sendo.test` | `demo1234` |
+
+---
+
+## Usage
+
+1. **Sign in (demo).** Run `npm run dev`, open `http://localhost:3000`, sign in as `demo@sendo.test` / `demo1234`.
+2. **Add a customer (one time).** Open **ลูกค้า → + เพิ่มลูกค้า**. Enter tax ID, address, and branch; press **บันทึก** (Save). The details reuse on every future invoice.
+3. **Create an invoice.** Go to **ใบแจ้งหนี้ → + สร้างใบแจ้งหนี้**. Pick **ลูกค้า**, choose **ประเภทงาน** — e.g. *ขนส่งพ่วงบริการ* — and add a line item for 20,000. Watch **ยอดชำระสุทธิ** settle at 20,800 (VAT 1,400, หัก ณ ที่จ่าย 600). Press **บันทึกฉบับร่าง**.
+4. **Issue the document.** Press **ออกใบกำกับภาษี**. If a required field is missing, the action is blocked and the missing items are listed in Thai. Otherwise the status becomes *ออกแล้ว* and the issue date is stamped.
+5. **Download PDFs.** Download **ใบกำกับภาษี (PDF)** and, when withholding tax applies, **ใบหัก ณ ที่จ่าย (50 ทวิ)**. Both use Sarabun (the open Thai-government font) and render correctly offline.
+6. **Verify tenant isolation.** Sign in as `other@sendo.test` and confirm none of the first company's data is visible.
+7. **Edit tax rates.** Go to **ตั้งค่าภาษี** to adjust withholding and VAT rates per job type — no code change needed. Rates are data, not code.
+
+Invoice statuses: **ฉบับร่าง** · **ออกแล้ว** · **ชำระแล้ว** · **เกินกำหนด**
+
+---
 
 ## Architecture
 
@@ -81,111 +110,71 @@ Browser ──▶ Next.js 16 (App Router) ──▶ Prisma ──▶ SQLite (pri
                 └─ /api/invoices/[id]/pdf · /wht  ──▶ @react-pdf/renderer (Sarabun)
 ```
 
-| Area | Where | Key technology |
-|---|---|---|
-| Tax engine | `lib/tax.ts`, `lib/money.ts` | pure TypeScript, Vitest |
-| Data & tenancy | `lib/db.ts`, `lib/tenant.ts`, `prisma/` | Prisma 6, SQLite |
-| Auth | `lib/auth.ts`, `proxy.ts` | NextAuth 4, bcryptjs |
-| Documents | `components/pdf/`, `app/api/invoices/` | @react-pdf/renderer |
-| UI | `app/`, `components/` | React 19, Tailwind v4 |
+| Topic | Decision |
+| --- | --- |
+| Money is server-truth | Every save recomputes subtotal, VAT, WHT, and net via `lib/tax.ts` from the company's `TaxSetting` — a tampered client request cannot change what is billed. |
+| Integer satang | All amounts stored as integer satang (baht × 100). Rounding is half-away-from-zero applied to VAT and WHT only; net is exact integer arithmetic. No floating-point drift. |
+| Tenant isolation is structural | Every update and delete uses `where: { id, companyId }` — a forged ID can never reach another company's row. Enforced by `requireSession()` / `requireWriter()` from `lib/tenant.ts`. |
+| Poka-yoke on issue | `issueInvoice` runs the มาตรา 86/4 eight-field check before changing status. Anything missing is returned as a Thai error list; the document stays DRAFT. |
+| Atomic invoice numbers | A per-company-per-year `InvoiceCounter` increments inside a transaction. Concurrent issues cannot collide and a deleted invoice never re-issues its number. |
+| Rates as data, not code | Withholding and VAT rates live in `TaxSetting` (editable in **ตั้งค่าภาษี**). Correcting a rate never requires a deploy. Seeded defaults: ขนส่งล้วน 1% · ขนส่งพ่วงบริการ 3% · ค่าเช่า 5% · ค่าโฆษณา 2%. |
+| WHT rate on 50 ทวิ derived from stored amounts | `whtRatePct` is computed from the stored satang values at PDF time — a rate edit after issue cannot change the printed rate on a legal certificate already issued. |
+| Bundled Thai font | Sarabun ships in the repo under `public/fonts`. PDFs render Thai correctly with no network call, and align with the ETDA e-Tax reference font (THSarabun). |
+| SQLite for local dev | Single-file database, no external service. Migrate to PostgreSQL for production (see Roadmap). |
+| State machine for invoice status | `DRAFT→SENT` (issue only) · `SENT→{PAID,OVERDUE}` · `OVERDUE→{PAID,SENT}` · `PAID→OVERDUE`. A legally-issued document can never be reverted to DRAFT. |
+| Delete restricted to OWNER + DRAFT | Hard-deleting an issued tax document destroys the audit trail. Only an OWNER may delete, and only while the invoice is still DRAFT. |
 
-Design decisions worth noting:
+---
 
-- **Money is server-truth.** The client total is a preview only; every save recomputes amounts from
-  the company's own `TaxSetting`, so a tampered request can't change what's billed.
-- **Tenant isolation is structural, not disciplined.** Updates and deletes use
-  `updateMany({ where: { id, companyId } })`, so a forged id can never reach another company's row.
-- **Atomic invoice numbers.** A per-company-per-year `InvoiceCounter` increments inside a transaction
-  — concurrent issues can't collide, and deleting an invoice never re-issues its number.
-- **Rates as data, not code.** Withholding/VAT rates sit in the database with an accountant warning in
-  the UI, so they can be corrected without a deploy.
-- **`@react-pdf` with a bundled Thai font.** Sarabun (the open government document font) ships in the
-  repo, so PDFs render Thai correctly with no network call.
+## Configuration
 
-The full plan and assumptions are in [`docs`](#project-documentation).
+### Environment variables
 
-## Requirements
-
-- [Node.js 20+](https://nodejs.org) — check with `node -v`
-- macOS / Linux / Windows; the app and tests run on all three
-
-## Installation
-
-**Mac / Linux**
-```bash
-git clone https://github.com/Tasachii/Sendo.git
-cd Sendo
-cp .env.example .env          # then set NEXTAUTH_SECRET — openssl rand -base64 32
-npm install                   # installs deps, runs prisma generate
-npx prisma migrate dev        # create the local SQLite database
-npm run seed                  # load demo data (two companies)
-```
-
-**Windows**
-```bat
-git clone https://github.com/Tasachii/Sendo.git
-cd Sendo
-copy .env.example .env         :: then set NEXTAUTH_SECRET
-npm install                    :: installs deps, runs prisma generate
-npx prisma migrate dev         :: create the local SQLite database
-npm run seed                   :: load demo data (two companies)
-```
-
-## Usage
-
-### Development
-
-```bash
-npm run dev          # start the app on http://localhost:3000
-```
-
-### Daily use
-
-```bash
-npm run build        # production build (type-checks every route)
-npm start            # serve the production build
-npm run db:studio    # open Prisma Studio to inspect the database
-npm run seed         # reset demo data
-```
-
-Demo accounts created by the seed:
-
-| Role | Email | Password |
-|---|---|---|
-| Demo company (OWNER) | `demo@sendo.test` | `demo1234` |
-| Second tenant (proves isolation) | `other@sendo.test` | `demo1234` |
-
-### Two-minute tutorial
-
-1. `npm run dev`, open `http://localhost:3000`, and sign in with the demo account above.
-2. Open **ลูกค้า → + เพิ่มลูกค้า** and save a customer once (tax ID, address, branch).
-3. Go to **ใบแจ้งหนี้ → + สร้างใบแจ้งหนี้**. Pick **ลูกค้า**, choose **ประเภทงาน** — say
-   *ขนส่งพ่วงบริการ* — and add a line item for 20,000. Watch **ยอดชำระสุทธิ** settle at 20,800
-   (VAT 1,400, หัก ณ ที่จ่าย 600). Press **บันทึกฉบับร่าง**.
-4. On the invoice, press **ออกใบกำกับภาษี**. If a required field is missing it's blocked with a Thai
-   list; otherwise the status becomes *ออกแล้ว*.
-5. Download **ใบกำกับภาษี (PDF)** and, since this job withholds tax, **ใบหัก ณ ที่จ่าย (50 ทวิ)**.
-6. Sign in as `other@sendo.test` and confirm none of the first company's data is visible.
-
-### Configuration
-
-| Environment variable | Default | Purpose |
-|---|---|---|
+| Variable | Default | Purpose |
+| --- | --- | --- |
 | `NEXTAUTH_URL` | `http://localhost:3000` | Base URL for NextAuth callbacks |
-| `NEXTAUTH_SECRET` | — | Session signing secret (`openssl rand -base64 32`) |
+| `NEXTAUTH_SECRET` | — | Session signing secret — generate with `openssl rand -base64 32` |
 
 The SQLite path is set in `prisma/schema.prisma` (`file:./dev.db`).
 
-## Testing
+### Tax engine defaults
 
-```bash
-npm test             # Vitest — 23 tests across 6 files
-npm run test:coverage   # same suite + a v8 coverage report (gates CI thresholds)
-```
+Seeded into `TaxSetting` per company. Editable in **ตั้งค่าภาษี** without a code change.
 
-Covers the tax engine (the five spec cases plus rounding), tenant isolation, the poka-yoke
-มาตรา 86/4 validator, the invoice flow (numbering, totals, concurrency), the monthly tax
-report aggregation, and the demo-rate sync guard.
+| Job type | Label | VAT | WHT |
+| --- | --- | --- | --- |
+| `TRANSPORT` | ขนส่งล้วน | 7% | 1% |
+| `TRANSPORT_SERVICE` | ขนส่งพ่วงบริการ | 7% | 3% |
+| `RENTAL` | ค่าเช่า | 7% | 5% |
+| `ADVERTISING` | ค่าโฆษณา | 7% | 2% |
+
+WHT threshold: no withholding when subtotal < 1,000 baht (100,000 satang) per Thai Revenue rule §2.1.4.
+
+---
+
+## CI
+
+GitHub Actions runs on every push and pull request to `main`:
+
+1. `npm run test:coverage` — full 155-test suite + v8 coverage thresholds (gates the PR).
+2. `npm run build` — type-check + bundle every route.
+
+Node 20 · Ubuntu latest · `npm ci` for reproducible installs.
+
+---
+
+## Roadmap
+
+- [x] Phase 1 — auth + tenant isolation, Customer/Service CRUD, create-invoice with live totals, poka-yoke มาตรา 86/4 issue gate, tax invoice + 50 ทวิ PDFs, atomic numbering, audit log
+- [x] Phase 2 — pricing modes (FLAT / WEIGHT / DISTANCE), copy-invoice, multi-shipment tracking, dashboard (month / unpaid / overdue), auto-OVERDUE
+- [x] Phase 3 partial — monthly ภ.ง.ด./ภ.พ.30 summary with CSV export, e-Tax XML builder/validator and carrier state mapper (unit-tested stubs)
+- [ ] e-Tax Invoice — ETDA PDF/A-3 + XML per ขมธอ.3-2560 v2.0 + digital signature (interface stub exists in `lib/etax.ts`)
+- [ ] Carrier API integrations — live endpoints (`lib/carriers.ts` adapter defined, throws until implemented)
+- [ ] Audit-log viewer UI
+- [ ] Invite STAFF / VIEWER users
+- [ ] Production hardening — PostgreSQL, Playwright e2e, login rate-limiting, e-Withholding 1% reduced-rate
+
+---
 
 ## Project documentation
 
@@ -194,18 +183,10 @@ report aggregation, and the demo-rate sync guard.
 - [`DECISIONS.md`](DECISIONS.md) — running log of assumptions and resolved spec conflicts
 - [`ROADMAP.md`](ROADMAP.md) — Phase 2/3 plan and the production-hardening checklist
 
-## Roadmap
-
-Phases 1 and 2 have shipped: auth with tenant isolation, customer/service/tax CRUD, the live-totals
-invoice screen, the poka-yoke issue gate, invoice and 50 ทวิ PDFs, atomic numbering, audit log,
-weight/distance pricing, copy-invoice, multi-shipment tracking, a dashboard (month/unpaid/overdue),
-and auto-OVERDUE. Phase 3 has the monthly ภ.ง.ด./ภ.พ.30 summary with CSV export done; the e-Tax
-Invoice (ETDA PDF/A-3 + XML) and carrier-API integrations are defined as interface stubs awaiting
-implementation. The full plan lives in [`ROADMAP.md`](ROADMAP.md).
+---
 
 ## License
 
 MIT © Phasathat Jaruchitsophon
 
-> Tax rates and the 50 ทวิ party direction are common defaults — confirm them with your company's
-> accountant before issuing real documents. Not tax or filing advice.
+> Tax rates and the 50 ทวิ party direction are common defaults — confirm them with your company's accountant before issuing real documents. Not tax or filing advice.
