@@ -18,6 +18,22 @@ enum InvoiceStatus {
   SENT
   PAID
   OVERDUE
+  ACCEPTED // quotation accepted by the customer
+  REJECTED // quotation declined
+  EXPIRED // quotation past its validUntil
+  VOID // issued document cancelled (kept for audit, not deleted)
+}
+
+// Every business document Sendo can issue. The `Invoice` table below is the shared
+// backing store for all of them (discriminated by `docType`); the UI calls them เอกสาร.
+enum DocType {
+  QUOTATION // ใบเสนอราคา
+  BILLING_NOTE // ใบแจ้งหนี้ / ใบวางบิล
+  TAX_INVOICE // ใบกำกับภาษี (+ ใบแจ้งหนี้) — the legacy default, keeps the INV- series
+  RECEIPT // ใบเสร็จรับเงิน (+ ใบกำกับภาษี)
+  RECEIPT_SUBSTITUTE // ใบรับรองแทนใบเสร็จรับเงิน
+  CREDIT_NOTE // ใบลดหนี้
+  DEBIT_NOTE // ใบเพิ่มหนี้
 }
 
 model Company {
@@ -29,16 +45,25 @@ model Company {
   isVatRegistered Boolean  @default(true)
   createdAt       DateTime @default(now())
 
+  // Branding rendered on every document PDF. Stored as base64 data URIs (logos are
+  // small; this avoids a filesystem/volume dependency so it works on Render/Docker
+  // as-is). Validated for mime + size in app/actions/company.ts.
+  logoDataUrl      String? // header logo
+  sealDataUrl      String? // company seal / ตราประทับ
+  signatureDataUrl String? // authorised signature
+
   users       User[]
   customers   Customer[]
   services    Service[]
   taxSettings TaxSetting[]
   invoices    Invoice[]
   counters    InvoiceCounter[]
+  docCounters DocumentCounter[]
   auditLogs   AuditLog[]
 }
 
-// Atomic per-company-per-year sequence for invoice numbers (race-safe, gap-free).
+// Atomic per-company-per-year sequence for the TAX_INVOICE (INV-) series — race-safe,
+// gap-free. Kept as-is for numbering continuity with documents already issued.
 model InvoiceCounter {
   companyId String
   year      Int
@@ -47,6 +72,19 @@ model InvoiceCounter {
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@id([companyId, year])
+}
+
+// Atomic per-company-per-series-per-year sequence for every other document type
+// (QUO-, BILL-, REC-, RCS-, CN-, DN-). Same race-safe upsert+increment as above.
+model DocumentCounter {
+  companyId String
+  series    String // e.g. "QUO", "REC", "CN"
+  year      Int
+  lastSeq   Int    @default(0)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@id([companyId, series, year])
 }
 
 // Who did what — append-only audit trail, scoped per tenant.
@@ -118,22 +156,40 @@ model TaxSetting {
 }
 
 model Invoice {
-  id             String        @id @default(cuid())
-  companyId      String
-  number         String
+  id        String        @id @default(cuid())
+  companyId String
+  // The document type. Defaults to TAX_INVOICE so historical rows (all tax invoices)
+  // migrate cleanly and existing code paths keep working.
+  docType   DocType       @default(TAX_INVOICE)
+  number    String
   customerId     String
   issueDate      DateTime      @default(now())
   dueDate        DateTime?
   status         InvoiceStatus @default(DRAFT)
   jobType        String
-  subtotalSatang Int
+  subtotalSatang Int // taxable base AFTER discounts
+  docDiscountSatang Int        @default(0) // whole-document discount (satang)
   vatSatang      Int
   whtSatang      Int
   netSatang      Int
   trackingNo     String?
   note           String?
-  createdById    String
-  createdAt      DateTime      @default(now())
+
+  // Type-specific fields (nullable; only some types use each).
+  validUntil    DateTime? // QUOTATION: ใช้ได้ถึง
+  paymentMethod String? // RECEIPT: เงินสด / โอน / เช็ค ...
+  receivedDate  DateTime? // RECEIPT: วันที่รับเงิน
+  payeeName     String? // RECEIPT_SUBSTITUTE: ผู้รับเงิน (when no buyer tax profile)
+  reason        String? // CREDIT/DEBIT note + RECEIPT_SUBSTITUTE: เหตุผล
+  refDocNumber  String? // CREDIT/DEBIT note: reference to the original document number
+
+  // Conversion lineage: quotation → invoice → receipt, etc.
+  sourceId String?
+  source   Invoice?  @relation("DocConversion", fields: [sourceId], references: [id])
+  derived  Invoice[] @relation("DocConversion")
+
+  createdById String
+  createdAt   DateTime @default(now())
 
   company   Company       @relation(fields: [companyId], references: [id])
   customer  Customer      @relation(fields: [customerId], references: [id])
@@ -153,7 +209,8 @@ model InvoiceItem {
   pricingMode     String @default("FLAT")
   qty             Float
   unitPriceSatang Int
-  lineTotalSatang Int
+  discountSatang  Int    @default(0) // per-line discount (satang), already clamped to [0, gross]
+  lineTotalSatang Int // = round(unitPriceSatang × qty) − discountSatang
 
   invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 }

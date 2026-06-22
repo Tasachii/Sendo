@@ -1,4 +1,10 @@
 import { db } from "@/lib/db";
+import { ALL_DOC_TYPES } from "@/lib/docTypes";
+
+// Only these document types belong in the VAT / WHT monthly summary. A combined
+// receipt/tax-invoice (RECEIPT) or a credit/debit note is excluded to avoid double
+// counting against the TAX_INVOICE it adjusts — issue a TAX_INVOICE for the VAT report.
+const VAT_REPORT_TYPES = ALL_DOC_TYPES.filter((m) => m.countsForVatReport).map((m) => m.type);
 
 export type MonthRow = {
   month: number; // 1-12
@@ -20,7 +26,12 @@ export async function monthlySummary(companyId: string, year: number): Promise<M
   const start = new Date(year, 0, 1);
   const end = new Date(year + 1, 0, 1);
   const invoices = await db.invoice.findMany({
-    where: { companyId, status: { not: "DRAFT" }, issueDate: { gte: start, lt: end } },
+    where: {
+      companyId,
+      status: { not: "DRAFT" },
+      docType: { in: VAT_REPORT_TYPES },
+      issueDate: { gte: start, lt: end },
+    },
     select: { issueDate: true, subtotalSatang: true, vatSatang: true, whtSatang: true, netSatang: true },
   });
 
@@ -42,7 +53,7 @@ export async function monthlySummary(companyId: string, year: number): Promise<M
 
 export async function availableYears(companyId: string): Promise<number[]> {
   const rows = await db.invoice.findMany({
-    where: { companyId, status: { not: "DRAFT" } },
+    where: { companyId, status: { not: "DRAFT" }, docType: { in: VAT_REPORT_TYPES } },
     select: { issueDate: true },
   });
   const years = new Set(rows.map((r) => r.issueDate.getFullYear()));

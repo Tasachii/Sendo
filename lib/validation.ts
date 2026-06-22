@@ -15,6 +15,15 @@ export const registerSchema = z.object({
 });
 export type RegisterInput = z.infer<typeof registerSchema>;
 
+export const companyProfileSchema = z.object({
+  name: z.string().min(1, "กรุณากรอกชื่อบริษัท"),
+  taxId: z.string().regex(taxId13, "เลขประจำตัวผู้เสียภาษีต้องเป็นตัวเลข 13 หลัก"),
+  address: z.string().min(1, "กรุณากรอกที่อยู่บริษัท"),
+  branch: z.string().min(1, "กรุณาระบุสำนักงานใหญ่/สาขา").default("สำนักงานใหญ่"),
+  isVatRegistered: z.boolean().default(true),
+});
+export type CompanyProfileInput = z.infer<typeof companyProfileSchema>;
+
 export const teamMemberSchema = z.object({
   name: z.string().min(1, "กรุณากรอกชื่อ"),
   email: z.string().email("อีเมลไม่ถูกต้อง"),
@@ -55,6 +64,9 @@ export const invoiceItemSchema = z.object({
   pricingMode: pricingModeSchema.default("FLAT"),
   qty: z.coerce.number().gt(0, "จำนวนต้องมากกว่า 0"),
   unitPriceBaht: z.coerce.number().min(0, "ราคาต้องไม่ติดลบ"),
+  // Optional per-line discount. Percentage wins over a flat baht amount if both are sent.
+  discountBaht: z.coerce.number().min(0, "ส่วนลดต้องไม่ติดลบ").optional(),
+  discountPct: z.coerce.number().min(0).max(100, "ส่วนลดต้องไม่เกิน 100%").optional(),
 });
 
 export const shipmentSchema = z.object({
@@ -62,14 +74,40 @@ export const shipmentSchema = z.object({
   note: z.string().optional().or(z.literal("")),
 });
 
-export const invoiceDraftSchema = z.object({
+export const docTypeSchema = z.enum([
+  "QUOTATION",
+  "BILLING_NOTE",
+  "TAX_INVOICE",
+  "RECEIPT",
+  "RECEIPT_SUBSTITUTE",
+  "CREDIT_NOTE",
+  "DEBIT_NOTE",
+]);
+export type DocTypeInput = z.infer<typeof docTypeSchema>;
+
+const optStr = z.string().optional().or(z.literal(""));
+
+export const documentDraftSchema = z.object({
+  docType: docTypeSchema.default("TAX_INVOICE"),
   customerId: z.string().min(1, "กรุณาเลือกลูกค้า"),
   jobType: z.string().min(1, "กรุณาเลือกประเภทงาน"),
   issueDate: z.string().min(1, "กรุณาระบุวันที่"),
-  dueDate: z.string().optional().or(z.literal("")),
-  trackingNo: z.string().optional().or(z.literal("")),
-  note: z.string().optional().or(z.literal("")),
+  dueDate: optStr,
+  validUntil: optStr, // QUOTATION
+  receivedDate: optStr, // RECEIPT / RECEIPT_SUBSTITUTE
+  paymentMethod: optStr, // RECEIPT
+  payeeName: optStr, // RECEIPT_SUBSTITUTE
+  reason: optStr, // CREDIT/DEBIT note + RECEIPT_SUBSTITUTE
+  refDocNumber: optStr, // CREDIT/DEBIT note reference
+  trackingNo: optStr,
+  note: optStr,
+  docDiscountBaht: z.coerce.number().min(0).optional(),
+  docDiscountPct: z.coerce.number().min(0).max(100).optional(),
   items: z.array(invoiceItemSchema).min(1, "ต้องมีอย่างน้อย 1 รายการ"),
   shipments: z.array(shipmentSchema).default([]),
 });
-export type InvoiceDraftInput = z.infer<typeof invoiceDraftSchema>;
+export type DocumentDraftInput = z.infer<typeof documentDraftSchema>;
+
+// Back-compat alias — older call sites referenced invoiceDraftSchema.
+export const invoiceDraftSchema = documentDraftSchema;
+export type InvoiceDraftInput = DocumentDraftInput;
