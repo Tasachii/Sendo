@@ -2,9 +2,12 @@ import { z } from "zod";
 
 // Shared Zod schemas — used by both server actions and client forms (build spec §1).
 
+// Thai นิติบุคคล tax ID — exactly 13 digits, no other characters.
+const taxId13 = /^\d{13}$/;
+
 export const registerSchema = z.object({
   companyName: z.string().min(1, "กรุณากรอกชื่อบริษัท"),
-  companyTaxId: z.string().min(10, "เลขประจำตัวผู้เสียภาษีต้องมี 13 หลัก").max(13),
+  companyTaxId: z.string().regex(taxId13, "เลขประจำตัวผู้เสียภาษีต้องเป็นตัวเลข 13 หลัก"),
   companyAddress: z.string().min(1, "กรุณากรอกที่อยู่บริษัท"),
   ownerName: z.string().min(1, "กรุณากรอกชื่อผู้ใช้"),
   email: z.string().email("อีเมลไม่ถูกต้อง"),
@@ -22,7 +25,13 @@ export type TeamMemberInput = z.infer<typeof teamMemberSchema>;
 
 export const customerSchema = z.object({
   name: z.string().min(1, "กรุณากรอกชื่อลูกค้า"),
-  taxId: z.string().optional().or(z.literal("")),
+  // Optional for non-VAT buyers; but when provided it must be a valid 13-digit Thai tax ID,
+  // so a VAT-registered customer can never be saved with a malformed taxId (A6 / poka-yoke).
+  taxId: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .refine((v) => !v || taxId13.test(v), "เลขประจำตัวผู้เสียภาษีต้องเป็นตัวเลข 13 หลัก"),
   address: z.string().optional().or(z.literal("")),
   branch: z.string().min(1, "กรุณาระบุสำนักงานใหญ่/สาขา").default("สำนักงานใหญ่"),
   contactPhone: z.string().optional().or(z.literal("")),

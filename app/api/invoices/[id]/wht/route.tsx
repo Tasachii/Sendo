@@ -18,7 +18,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (inv.whtSatang <= 0) return new Response("ใบแจ้งหนี้นี้ไม่มีการหัก ณ ที่จ่าย", { status: 400 });
 
   const setting = await db.taxSetting.findFirst({ where: { companyId: ctx.companyId, jobType: inv.jobType } });
-  const whtRatePct = setting ? Math.round(setting.whtRate * 100) : 0;
+  // Derive the rate from what was ACTUALLY withheld on this invoice (stored amounts),
+  // not the live TaxSetting — so editing the rate after issue can't change a legal cert (A13).
+  const whtRatePct = inv.subtotalSatang > 0 ? Math.round((inv.whtSatang / inv.subtotalSatang) * 100) : 0;
 
   registerThaiFont();
   const buffer = await renderToBuffer(

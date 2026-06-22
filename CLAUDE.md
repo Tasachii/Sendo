@@ -82,7 +82,10 @@ Demo login: `demo@sendo.test` / `demo1234`. Second tenant: `other@sendo.test` / 
 - **Phase 3 — partial:** monthly tax summary + CSV export done (`lib/reports.ts`, `/reports`,
   `/api/reports/csv`). **e-Tax Invoice** and **carrier APIs** are interface stubs only — `lib/etax.ts`
   (PDF/A-3 + XML per ขมธอ.3-2560 v2.0 + digital signature; ETDA reference) and `lib/carriers.ts`
-  (`CarrierAdapter` per carrier). Both throw/return-unknown until implemented.
+  (`CarrierAdapter` per carrier). The PDF/A-3 + PAdES sign/embed and the live carrier endpoints stay
+  unimplemented (throw / return-unknown), but their pure layers are now unit-tested: the e-Tax XML
+  builder/validator (`buildETaxXml`/`validateETaxDocument`, `tests/etax.test.ts`) and the carrier
+  state mapper + header builder + adapter (`tests/carriers.test.ts`).
 
 ## Conventions to match (from the team's `pocketo` repo)
 

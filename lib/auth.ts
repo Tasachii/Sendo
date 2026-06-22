@@ -2,6 +2,15 @@ import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
+import { loginThrottle } from "@/lib/rate-limit";
+
+// Best-effort client IP from the proxy chain; falls back to a constant so the
+// throttle still counts per-email when no IP is available.
+function clientIp(req?: { headers?: Record<string, string | undefined> | unknown }): string {
+  const headers = (req?.headers ?? {}) as Record<string, string | undefined>;
+  const fwd = headers["x-forwarded-for"] ?? headers["x-real-ip"];
+  return fwd?.split(",")[0]?.trim() || "unknown";
+}
 
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
@@ -13,14 +22,25 @@ export const authOptions: NextAuthOptions = {
         email: { label: "อีเมล", type: "email" },
         password: { label: "รหัสผ่าน", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) return null;
-        const user = await db.user.findUnique({
-          where: { email: credentials.email.toLowerCase().trim() },
-        });
-        if (!user) return null;
+        const email = credentials.email.toLowerCase().trim();
+        const ip = clientIp(req);
+
+        // Reject early when this email+IP is locked out (D10 — brute-force guard).
+        if (!loginThrottle.check(email, ip).allowed) return null;
+
+        const user = await db.user.findUnique({ where: { email } });
+        if (!user) {
+          loginThrottle.recordFailure(email, ip);
+          return null;
+        }
         const ok = await bcrypt.compare(credentials.password, user.passwordHash);
-        if (!ok) return null;
+        if (!ok) {
+          loginThrottle.recordFailure(email, ip);
+          return null;
+        }
+        loginThrottle.recordSuccess(email, ip); // reset the counter on success
         // shape returned here flows into the jwt() callback as `user`
         return {
           id: user.id,

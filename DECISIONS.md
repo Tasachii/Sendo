@@ -91,3 +91,75 @@ poka-yoke 8-field validation on issue, invoice + WHT-cert PDFs, invoice list + s
 ## Open / next
 - Audit-log viewer UI; invite STAFF/VIEWER users; e-Withholding 1% reduced-rate (confirm with accountant).
 - Production hardening: PostgreSQL, Playwright e2e, rate-limiting (see ROADMAP).
+
+---
+
+# Remediation pass (2026-06-22) — FIXLIST decisions
+
+Resolutions applied while executing `FIXLIST.md`. See `AUDIT_CHANGES.md` for the full per-item changelog.
+
+## D-A8 — STAFF role policy (RESOLVED)
+- **Decision:** keep `requireWriter` (blocks only VIEWER) for create / issue / duplicate / status — STAFF
+  may run the day-to-day invoice workflow. **Gate `deleteInvoice` behind `requireOwner`** because a hard
+  delete of a legal document is destructive and irreversible (audit + number continuity).
+- Combined with D-A7 below, an invoice can only be deleted when it is **OWNER + DRAFT**. Issued documents
+  (SENT/PAID/OVERDUE) can never be deleted — they must be voided (future work).
+- Boundary asserted in `tests/invoices.test.ts` (VIEWER blocked everywhere; STAFF may issue/status/duplicate
+  but not delete; OWNER may delete only DRAFT).
+
+## D-A7 — deleteInvoice DRAFT-only guard (RESOLVED)
+- `deleteInvoice` now rejects any non-DRAFT status with a Thai error and only deletes
+  `where: { id, companyId, status: "DRAFT" }`. Prevents erasing issued tax documents.
+
+## D-A3 — setInvoiceStatus transition whitelist (RESOLVED)
+- State machine: `DRAFT→{} (issue only)`, `SENT→{PAID,OVERDUE}`, `OVERDUE→{PAID,SENT}`, `PAID→{OVERDUE}`.
+- A legally-issued document can never be reverted to DRAFT. No-op same-status transitions are allowed.
+
+## D-A9 — issueDate stamped at issue (RESOLVED)
+- `issueInvoice` now sets `issueDate: new Date()` when moving DRAFT→SENT, so the legal issue moment
+  (มาตรา 86/4 field 7) reflects when the document was actually issued, not when the draft was created.
+- The `status: "DRAFT"` guard keeps re-issuing an already-SENT invoice a no-op (date does not change).
+
+## D-A4 — roundSatang is now sign-aware (UPDATES D3)
+- Changed `Math.floor(value + 0.5)` → `Math.sign(value) * Math.floor(Math.abs(value) + 0.5)`
+  (half-**away-from-zero**). Old code was asymmetric for negatives (`-0.5→0`, `-1.5→-1`).
+- All current inputs are non-negative, so live results are unchanged; this is latent-bug prevention for
+  credit notes / negative adjustments (e-Tax doc types 80/81). Boundary tests in `tests/money.test.ts`.
+- **Supersedes D3's "floor(x+0.5)" wording** for the rounding helper.
+
+## D-A5 / D-A6 — taxId validation tightened (RESOLVED)
+- `companyTaxId` is now `/^\d{13}$/` (was `.min(10).max(13)`, which accepted 10–12 digits and non-digits).
+- `customer.taxId` stays optional (non-VAT buyers) but is format-checked to `/^\d{13}$/` when non-empty,
+  so a VAT-registered buyer can't be saved with a malformed taxId. Aligns with `lib/etax.ts` `validateParty`.
+
+## D-A13 — WHT cert rate derived from stored amounts (RESOLVED)
+- `/api/invoices/[id]/wht` now computes `whtRatePct = round(whtSatang / subtotalSatang × 100)` (guarded
+  against divide-by-zero) instead of reading the live `TaxSetting.whtRate`. A rate edit after issue can no
+  longer change the printed rate on an already-issued legal certificate.
+
+## D-A10 — TAX_DEFAULTS single source (RESOLVED)
+- Extracted the duplicated rate table into `lib/taxDefaults.ts`; imported by `prisma/seed.ts` and
+  `app/actions/auth.ts`. `tests/demo-rates.test.ts` now reads the canonical table from `lib/taxDefaults.ts`
+  (it regex-scans source text, so the literals must stay inline there).
+
+## D-A15 / D11 — dependency audit (DOCUMENTED, no force-fix)
+- `npm audit` reports transitive vulns via `next` / `next-auth` / `vite`/`vitest` / `postcss` / `uuid`.
+- Added `@vitest/coverage-v8@2.1.9` (matches installed `vitest` 2.1.9). Did **not** bump the top-level
+  `vitest` range: a non-breaking bump within installed 2.x is already satisfied, and running
+  `npm audit fix --force` would **downgrade `next`/`next-auth`** (breaking) — explicitly avoided.
+- **Accepted residual risk:** the remaining advisories are framework-transitive; track upstream patched
+  `next`/`next-auth`/`postcss`/`uuid` releases and bump when available rather than force-downgrading.
+
+## D-cov — coverage thresholds calibrated day-one
+- `vitest.config.ts` `coverage.include` spans `lib/** app/actions/** app/api/**` per the audit. That glob
+  includes modules the new C2 suite does not yet cover (`customers/services/team/taxSettings` actions,
+  `[...nextauth]` + PDF route handlers, `lib/overdue.ts`, `lib/auth.ts`), which caps line/fn/stmt %.
+- Per FIXLIST C1.3 ("do not set unreachably high on day one; raise after the C2 suite lands"), thresholds
+  are set to a **floor just below current**: lines 50 / functions 55 / branches 65 / statements 50.
+  Current run: lines 55, functions 60.9, branches 76.2, statements 55. Raise toward 75/75/65 as the
+  remaining suites (customers/services/team/PDF routes) are written.
+
+## DEFERRED — D10 login rate-limiting (NOT DONE)
+- Per-email + per-IP attempt counting / lockout in `authorize()` is **deferred**: it needs an infra
+  decision (where to store attempt counts — DB table vs. Redis vs. in-memory) that is out of scope for
+  this pass. Documented here so it isn't lost. Mitigates credential stuffing / brute force.

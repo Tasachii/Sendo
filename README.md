@@ -179,11 +179,13 @@ The SQLite path is set in `prisma/schema.prisma` (`file:./dev.db`).
 ## Testing
 
 ```bash
-npm test             # Vitest — 18 tests across 4 files
+npm test             # Vitest — 23 tests across 6 files
+npm run test:coverage   # same suite + a v8 coverage report (gates CI thresholds)
 ```
 
 Covers the tax engine (the five spec cases plus rounding), tenant isolation, the poka-yoke
-มาตรา 86/4 validator, and the invoice flow (numbering, totals, concurrency).
+มาตรา 86/4 validator, the invoice flow (numbering, totals, concurrency), the monthly tax
+report aggregation, and the demo-rate sync guard.
 
 ## Project documentation
 

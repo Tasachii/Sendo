@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
-import { db, requireWriter } from "@/lib/tenant";
+import { db, requireWriter, requireOwner } from "@/lib/tenant";
 import { invoiceDraftSchema } from "@/lib/validation";
 import { computeTotals, nextInvoiceNumber } from "@/lib/invoice";
 import { validateForIssue } from "@/lib/poka-yoke";
@@ -12,6 +12,20 @@ import { formatBaht } from "@/lib/money";
 export type InvoiceActionResult =
   | { ok: true; id: string }
   | { ok: false; error: string; missing?: string[] };
+
+type InvoiceStatus = "DRAFT" | "SENT" | "PAID" | "OVERDUE";
+
+/**
+ * Allowed status transitions (state machine). A legally-issued document can never
+ * be un-issued back to DRAFT. DRAFT only leaves via `issueInvoice` (→ SENT), so it
+ * has no manual transitions here.
+ */
+const STATUS_TRANSITIONS: Record<InvoiceStatus, InvoiceStatus[]> = {
+  DRAFT: [],
+  SENT: ["PAID", "OVERDUE"],
+  OVERDUE: ["PAID", "SENT"],
+  PAID: ["OVERDUE"],
+};
 
 /** Create a DRAFT invoice. Totals + number are computed server-side. */
 export async function createInvoice(raw: unknown): Promise<InvoiceActionResult> {
@@ -91,9 +105,11 @@ export async function issueInvoice(id: string): Promise<InvoiceActionResult> {
     return { ok: false, error: "ออกใบกำกับภาษีไม่ได้: ข้อมูลไม่ครบตามมาตรา 86/4", missing };
   }
 
+  // Stamp the legal issue moment (มาตรา 86/4 field 7) at issue time, not the draft date.
+  // The status: "DRAFT" guard keeps this a no-op if the invoice was already issued.
   await db.invoice.updateMany({
     where: { id, companyId: ctx.companyId, status: "DRAFT" },
-    data: { status: "SENT" },
+    data: { status: "SENT", issueDate: new Date() },
   });
   await logAudit(ctx, "INVOICE_ISSUE", "Invoice", id, `ออกใบกำกับภาษี ${invoice.number}`);
   revalidatePath("/invoices");
@@ -103,11 +119,21 @@ export async function issueInvoice(id: string): Promise<InvoiceActionResult> {
 
 export async function setInvoiceStatus(
   id: string,
-  status: "DRAFT" | "SENT" | "PAID" | "OVERDUE"
+  status: InvoiceStatus
 ): Promise<InvoiceActionResult> {
   const ctx = await requireWriter();
-  const res = await db.invoice.updateMany({ where: { id, companyId: ctx.companyId }, data: { status } });
-  if (res.count === 0) return { ok: false, error: "ไม่พบใบแจ้งหนี้" };
+  const current = await db.invoice.findFirst({
+    where: { id, companyId: ctx.companyId },
+    select: { status: true },
+  });
+  if (!current) return { ok: false, error: "ไม่พบใบแจ้งหนี้" };
+
+  // No-op transition (e.g. SENT→SENT) is harmless; otherwise enforce the state machine.
+  if (current.status !== status && !STATUS_TRANSITIONS[current.status].includes(status)) {
+    return { ok: false, error: `เปลี่ยนสถานะจาก ${current.status} เป็น ${status} ไม่ได้` };
+  }
+
+  await db.invoice.updateMany({ where: { id, companyId: ctx.companyId }, data: { status } });
   await logAudit(ctx, "INVOICE_STATUS", "Invoice", id, `เปลี่ยนสถานะเป็น ${status}`);
   revalidatePath("/invoices");
   revalidatePath(`/invoices/${id}`);
@@ -161,11 +187,20 @@ export async function duplicateInvoice(id: string): Promise<InvoiceActionResult>
   return { ok: false, error: "ก๊อปใบแจ้งหนี้ไม่สำเร็จ กรุณาลองใหม่" };
 }
 
+/**
+ * Hard-delete an invoice. Destructive on a legal document, so it is OWNER-only
+ * (A8 policy) and restricted to DRAFT — a SENT/PAID/OVERDUE tax document must
+ * never be deleted (audit + number continuity). Issued docs should be voided, not erased.
+ */
 export async function deleteInvoice(id: string): Promise<InvoiceActionResult> {
-  const ctx = await requireWriter();
-  const target = await db.invoice.findFirst({ where: { id, companyId: ctx.companyId }, select: { number: true } });
-  await db.invoice.deleteMany({ where: { id, companyId: ctx.companyId } });
-  await logAudit(ctx, "INVOICE_DELETE", "Invoice", id, target ? `ลบใบแจ้งหนี้ ${target.number}` : undefined);
+  const ctx = await requireOwner();
+  const target = await db.invoice.findFirst({ where: { id, companyId: ctx.companyId }, select: { number: true, status: true } });
+  if (!target) return { ok: false, error: "ไม่พบใบแจ้งหนี้" };
+  if (target.status !== "DRAFT") {
+    return { ok: false, error: "ลบได้เฉพาะฉบับร่าง (DRAFT) เท่านั้น เอกสารที่ออกแล้วต้องยกเลิก ไม่ใช่ลบ" };
+  }
+  await db.invoice.deleteMany({ where: { id, companyId: ctx.companyId, status: "DRAFT" } });
+  await logAudit(ctx, "INVOICE_DELETE", "Invoice", id, `ลบใบแจ้งหนี้ ${target.number}`);
   revalidatePath("/invoices");
   return { ok: true, id };
 }

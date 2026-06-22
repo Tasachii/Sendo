@@ -6,7 +6,7 @@ import { WHT_THRESHOLD_SATANG } from "../lib/tax";
 // The public demo (demo/index.html) is a static, client-only build that re-implements the
 // tax engine in vanilla JS so it can run on GitHub Pages. That copy can silently drift from
 // the real engine. This test fails the moment the demo's rate table or WHT threshold stops
-// matching the canonical sources (prisma/seed.ts + lib/tax.ts) — see CLAUDE.md "Phase status".
+// matching the canonical sources (lib/taxDefaults.ts + lib/tax.ts) — see CLAUDE.md "Phase status".
 
 const read = (p: string) => readFileSync(fileURLToPath(new URL("../" + p, import.meta.url)), "utf8");
 
@@ -23,7 +23,8 @@ function rateTable(src: string): Record<string, Rate> {
 }
 
 describe("demo stays in sync with the real tax config", () => {
-  const seed = rateTable(read("prisma/seed.ts"));
+  // canonical rate table now lives in lib/taxDefaults.ts (imported by seed + registration)
+  const seed = rateTable(read("lib/taxDefaults.ts"));
   const demo = rateTable(read("demo/index.html"));
 
   it("extracts a non-trivial rate table from both sources", () => {
@@ -31,7 +32,7 @@ describe("demo stays in sync with the real tax config", () => {
     expect(Object.keys(demo).length).toBe(Object.keys(seed).length);
   });
 
-  it("demo job-type rates equal the seeded TaxSetting rates", () => {
+  it("demo job-type rates equal the canonical TaxSetting rates", () => {
     expect(demo).toEqual(seed);
   });
 

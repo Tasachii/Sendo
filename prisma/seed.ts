@@ -1,19 +1,8 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { TAX_DEFAULTS } from "../lib/taxDefaults";
 
 const db = new PrismaClient();
-
-// Common Thai tax defaults (build spec §2.2). These are SEED values only —
-// rates must be confirmed with the company's accountant and are editable in
-// the tax-settings screen without touching code.
-const TAX_DEFAULTS = [
-  { jobType: "transport_only", label: "ขนส่งล้วน (จดทะเบียนขนส่ง)", vatRate: 0, whtRate: 0.01, vatApplicable: false },
-  { jobType: "transport_service", label: "ขนส่งพ่วงบริการ", vatRate: 0.07, whtRate: 0.03, vatApplicable: true },
-  { jobType: "service", label: "ค่าบริการ / รับจ้างทำของ", vatRate: 0.07, whtRate: 0.03, vatApplicable: true },
-  { jobType: "rent", label: "ค่าเช่า", vatRate: 0.07, whtRate: 0.05, vatApplicable: true },
-  { jobType: "advertising", label: "ค่าโฆษณา", vatRate: 0.07, whtRate: 0.02, vatApplicable: true },
-  { jobType: "custom", label: "กำหนดเอง", vatRate: 0.07, whtRate: 0.03, vatApplicable: true },
-];
 
 async function seedCompany(opts: {
   name: string;

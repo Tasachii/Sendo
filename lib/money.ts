@@ -8,9 +8,10 @@ export function satangToBaht(satang: number): number {
   return satang / 100;
 }
 
-// round-half-up to the nearest satang
+// round half-away-from-zero to the nearest satang. Sign-aware so credit notes /
+// negative adjustments (e-Tax doc types 80/81) round symmetrically: -0.5 -> -1, 0.5 -> 1.
 export function roundSatang(value: number): number {
-  return Math.floor(value + 0.5);
+  return Math.sign(value) * Math.floor(Math.abs(value) + 0.5);
 }
 
 // 123456 -> "1,234.56"
