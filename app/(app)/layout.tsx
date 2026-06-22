@@ -24,13 +24,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </span>
             <nav className="hidden items-center gap-1 sm:flex">
               <NavLink href="/dashboard">หน้าหลัก</NavLink>
-              <NavLink href="/invoices">ใบแจ้งหนี้</NavLink>
+              <NavLink href="/documents" match={["/invoices"]}>เอกสาร</NavLink>
               <NavLink href="/customers">ลูกค้า</NavLink>
               <NavLink href="/services">รายการบริการ</NavLink>
               <NavLink href="/reports">รายงานภาษี</NavLink>
               <NavLink href="/audit">ประวัติ</NavLink>
               {ctx.role === "OWNER" && <NavLink href="/team">ทีมงาน</NavLink>}
-              <NavLink href="/settings">ตั้งค่าภาษี</NavLink>
+              <NavLink href="/settings">ตั้งค่า</NavLink>
             </nav>
           </div>
           <div className="flex items-center gap-3">
@@ -44,13 +44,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         {/* mobile nav */}
         <nav className="flex gap-1 overflow-x-auto border-t border-line px-4 py-2 sm:hidden">
           <NavLink href="/dashboard">หน้าหลัก</NavLink>
-          <NavLink href="/invoices">ใบแจ้งหนี้</NavLink>
+          <NavLink href="/documents" match={["/invoices"]}>เอกสาร</NavLink>
           <NavLink href="/customers">ลูกค้า</NavLink>
           <NavLink href="/services">บริการ</NavLink>
           <NavLink href="/reports">รายงาน</NavLink>
           <NavLink href="/audit">ประวัติ</NavLink>
           {ctx.role === "OWNER" && <NavLink href="/team">ทีม</NavLink>}
-          <NavLink href="/settings">ภาษี</NavLink>
+          <NavLink href="/settings">ตั้งค่า</NavLink>
         </nav>
       </header>
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">{children}</main>
