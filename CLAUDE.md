@@ -1,8 +1,13 @@
 # Sendo — Claude guide
 
-> Logistics invoicing web app for Thailand. Multi-tenant. Issues Thai tax invoices
-> (ใบกำกับภาษี) + withholding-tax certificates (ใบหัก ณ ที่จ่าย / 50 ทวิ).
+> Logistics invoicing web app for Thailand. Multi-tenant. Issues the full Thai business-document
+> suite — ใบเสนอราคา · ใบแจ้งหนี้ · ใบกำกับภาษี · ใบเสร็จรับเงิน · ใบรับรองแทนใบเสร็จ · ใบลดหนี้ ·
+> ใบเพิ่มหนี้ — plus the 50 ทวิ withholding-tax certificate, all from one engine.
 > Read `CONCEPT.md` (brand/identity) and `DECISIONS.md` (assumption log) alongside this file.
+
+> **One document engine.** Every type lives in the `Invoice` table, discriminated by `docType`.
+> `lib/docTypes.ts` is the single source of truth for each type's title, numbering series, status
+> machine, issue gate, and conversion edges — change behaviour there, not scattered across the UI.
 
 @AGENTS.md
 
@@ -79,8 +84,15 @@ Demo login: `demo@sendo.test` / `demo1234`. Second tenant: `other@sendo.test` / 
 - **Phase 2 — done:** pricing modes (FLAT/WEIGHT/DISTANCE on `InvoiceItem.pricingMode`), copy invoice
   (`duplicateInvoice`), multi-shipment (`Shipment` model), dashboard (month/unpaid/overdue), auto-OVERDUE
   via `lib/overdue.ts` (`sweepOverdue` called on dashboard/list read).
+- **Phase 4 — done (full document suite):** seven `docType`s on the shared `Invoice` table
+  (`lib/docTypes.ts`), per-line + whole-doc **discounts** in `computeTotals` (engine contract in
+  `lib/tax.ts` untouched), per-series numbering (`nextDocumentNumber`; TAX_INVOICE keeps `InvoiceCounter`/INV-,
+  others use `DocumentCounter`), type-aware poka-yoke gates, `convertDocument` lineage, company
+  **branding** (logo/seal/signature base64 on `Company`, rendered in `components/pdf/InvoicePDF.tsx`),
+  and the `/documents` hub + adaptive `DocumentForm`. e-Tax is wired end-to-end via `lib/etax-map.ts` +
+  `lib/etax-signer.ts` + `/api/invoices/[id]/etax` (XML always; signed PDF/A-3 when a cert is configured).
 - **Phase 3 — partial:** monthly tax summary + CSV export done (`lib/reports.ts`, `/reports`,
-  `/api/reports/csv`). **e-Tax Invoice** and **carrier APIs** are interface stubs only — `lib/etax.ts`
+  `/api/reports/csv`). **e-Tax Invoice** signing path needs a real ETDA cert; **carrier APIs** are stubs — `lib/etax.ts`
   (PDF/A-3 + XML per ขมธอ.3-2560 v2.0 + digital signature; ETDA reference) and `lib/carriers.ts`
   (`CarrierAdapter` per carrier). The PDF/A-3 + PAdES sign/embed and the live carrier endpoints stay
   unimplemented (throw / return-unknown), but their pure layers are now unit-tested: the e-Tax XML

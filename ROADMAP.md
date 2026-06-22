@@ -52,10 +52,34 @@ tracks Phase 2/3 plus the production-hardening items raised in the CEO/CTO/CFO r
 ## Phase 3 — pro / compliance
 
 - [x] **Monthly tax summary export** — ภ.ง.ด.3/53 + ภ.พ.30 monthly totals (`lib/reports.ts`,
-      `/reports`) with CSV download (`/api/reports/csv`, UTF-8 BOM for Excel Thai).
-- [ ] **e-Tax Invoice** — interface defined in `lib/etax.ts` (PDF/A-3 + XML per ขมธอ.3-2560 v2.0 +
-      digital signature, ETDA reference); body is a TODO that throws until implemented.
+      `/reports`) with CSV download (`/api/reports/csv`, UTF-8 BOM for Excel Thai). Now scoped to
+      `countsForVatReport` document types (TAX_INVOICE) so quotations never inflate the VAT report.
+- [x] **e-Tax Invoice** — `lib/etax-map.ts` maps a document → ขมธอ.3-2560 model; `/api/invoices/[id]/etax`
+      returns the validated XML, or a PAdES-signed PDF/A-3 when a certificate is configured
+      (`ETAX_PFX_BASE64` / `ETAX_PFX_PASSPHRASE`) via the `lib/etax-signer.ts` deps (`pdf-lib` + `@signpdf`).
+      Validate against ETDA's official XSD with the company's real certificate before live filing.
 - [ ] **Carrier API hooks** — `CarrierAdapter` interface in `lib/carriers.ts`; no live adapters yet.
+
+---
+
+## Phase 4 — full document suite (beat Biz108) — DONE ✅
+
+One unified document engine (the `Invoice` table discriminated by `docType`; `lib/docTypes.ts` is the
+single source of truth) replacing the single tax-invoice flow.
+
+- [x] **Seven document types** — ใบเสนอราคา · ใบแจ้งหนี้ · ใบกำกับภาษี · ใบเสร็จรับเงิน ·
+      ใบรับรองแทนใบเสร็จ · ใบลดหนี้ · ใบเพิ่มหนี้ — each with its own numbering series, status
+      machine, and type-aware poka-yoke gate (FULL μ86/4 · LIGHT · SUBSTITUTE).
+- [x] **Discounts** — per-line + whole-document, integer-satang, clamped, applied before VAT/WHT
+      in `computeTotals` (the `lib/tax.ts` contract is untouched).
+- [x] **Conversion workflow** — `convertDocument` clones quotation → invoice → receipt (and
+      tax invoice → credit/debit note), linking `sourceId`; lineage shown on the detail page.
+- [x] **Branding** — logo / seal / signature on `Company` (validated base64), rendered on every PDF;
+      company profile + branding editor on `/settings` (`app/actions/company.ts`).
+- [x] **UX** — unified `/documents` hub (type tabs + status filter + search), type chooser +
+      adaptive `DocumentForm`, dashboard quotation pipeline.
+- [x] 27 new Vitest tests (discounts, per-series numbering, gate-aware poka-yoke, conversion flow,
+      branding validation, e-Tax mapping); 182 total green, production build passes.
 
 ---
 

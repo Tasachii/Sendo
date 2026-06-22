@@ -32,7 +32,20 @@ Logistics billing is where the expensive mistakes happen: the wrong withholding 
 
 Sendo follows **poka-yoke（ポカヨケ）** — ส่งบิล ถูกต้องตั้งแต่แรก — prevent mistakes by design, not by catching them later: anything the system can compute is read-only, anything that must be chosen is a dropdown, and a document that breaks มาตรา 86/4 simply cannot be issued.
 
-- **Stack** — Next.js 16 · React 19 · TypeScript · Prisma 6 · SQLite · NextAuth 4 · Tailwind v4 · Zod · @react-pdf/renderer · Vitest
+Sendo issues the full Thai document suite from one engine, with automatic VAT **and discount**, a company logo/seal/signature on every PDF, and a conversion workflow a one-off generator cannot offer — a quotation becomes an invoice becomes a receipt in one click, each numbered, audited, and rolled into the tax report.
+
+| Document | Type | Series | Counts in VAT report |
+| --- | --- | --- | --- |
+| ใบเสนอราคา | `QUOTATION` | `QUO-` | — |
+| ใบแจ้งหนี้ / ใบวางบิล | `BILLING_NOTE` | `BILL-` | — |
+| ใบกำกับภาษี / ใบแจ้งหนี้ | `TAX_INVOICE` | `INV-` | ✓ |
+| ใบเสร็จรับเงิน / ใบกำกับภาษี | `RECEIPT` | `REC-` | — |
+| ใบรับรองแทนใบเสร็จรับเงิน | `RECEIPT_SUBSTITUTE` | `RCS-` | — |
+| ใบลดหนี้ | `CREDIT_NOTE` | `CN-` | — |
+| ใบเพิ่มหนี้ | `DEBIT_NOTE` | `DN-` | — |
+| หนังสือรับรองหัก ณ ที่จ่าย (50 ทวิ) | derived from any tax document | — | reported via ภ.ง.ด. |
+
+- **Stack** — Next.js 16 · React 19 · TypeScript · Prisma 6 · SQLite · NextAuth 4 · Tailwind v4 · Zod · @react-pdf/renderer · pdf-lib + @signpdf (e-Tax) · Vitest
 
 ---
 
@@ -69,7 +82,7 @@ npm run dev              # start the app on http://localhost:3000
 npm run build            # type-check + bundle every route (same step CI runs)
 npm start                # serve the production build locally
 npm run lint             # ESLint across the project
-npm test                 # Vitest — 155 tests across 16 files
+npm test                 # Vitest — 182 tests across 19 files
 npm run test:coverage    # same suite + v8 coverage report (gates CI thresholds)
 npm run test:watch       # Vitest in watch mode
 npm run db:migrate       # prisma migrate dev — apply new migrations
@@ -90,14 +103,15 @@ Demo accounts created by `npm run seed`:
 ## Usage
 
 1. **Sign in (demo).** Run `npm run dev`, open `http://localhost:3000`, sign in as `demo@sendo.test` / `demo1234`.
-2. **Add a customer (one time).** Open **ลูกค้า → + เพิ่มลูกค้า**. Enter tax ID, address, and branch; press **บันทึก** (Save). The details reuse on every future invoice.
-3. **Create an invoice.** Go to **ใบแจ้งหนี้ → + สร้างใบแจ้งหนี้**. Pick **ลูกค้า**, choose **ประเภทงาน** — e.g. *ขนส่งพ่วงบริการ* — and add a line item for 20,000. Watch **ยอดชำระสุทธิ** settle at 20,800 (VAT 1,400, หัก ณ ที่จ่าย 600). Press **บันทึกฉบับร่าง**.
-4. **Issue the document.** Press **ออกใบกำกับภาษี**. If a required field is missing, the action is blocked and the missing items are listed in Thai. Otherwise the status becomes *ออกแล้ว* and the issue date is stamped.
-5. **Download PDFs.** Download **ใบกำกับภาษี (PDF)** and, when withholding tax applies, **ใบหัก ณ ที่จ่าย (50 ทวิ)**. Both use Sarabun (the open Thai-government font) and render correctly offline.
-6. **Verify tenant isolation.** Sign in as `other@sendo.test` and confirm none of the first company's data is visible.
-7. **Edit tax rates.** Go to **ตั้งค่าภาษี** to adjust withholding and VAT rates per job type — no code change needed. Rates are data, not code.
+2. **Set up the company (one time).** Open **ตั้งค่า** to confirm the company identity and upload a **logo / ตราประทับ / ลายเซ็น** — they render on every document PDF. Tune VAT and withholding rates per job type here too; rates are data, not code.
+3. **Add a customer (one time).** Open **ลูกค้า → + เพิ่มลูกค้า**. Enter tax ID, address, and branch; press **บันทึก** (Save). The details reuse on every future document.
+4. **Create a document.** Go to **เอกสาร → + สร้างเอกสาร** and pick a type — e.g. *ใบเสนอราคา*. Choose **ลูกค้า** and **ประเภทงาน**, add line items (each with an optional **ส่วนลด**), and an optional whole-bill discount. Watch **ยอดชำระสุทธิ** settle automatically. Press **บันทึกฉบับร่าง**.
+5. **Issue the document.** Press the type's issue button (e.g. **ออกใบกำกับภาษี**). If a required field is missing, the action is blocked and the missing items are listed in Thai. For a full tax invoice the มาตรา 86/4 eight-field gate runs; lighter documents use a lighter gate.
+6. **Convert it.** From an issued quotation press **แปลงเป็นใบกำกับภาษี**; from an issued invoice press **แปลงเป็นใบเสร็จรับเงิน**. The new document copies the lines and links back to its source — the lineage shows on both.
+7. **Download.** Download the **PDF**, the **50 ทวิ** withholding certificate when WHT applies, or the **e-Tax** export (signed PDF/A-3 when a certificate is configured, otherwise the ขมธอ.3-2560 XML).
+8. **Verify tenant isolation.** Sign in as `other@sendo.test` and confirm none of the first company's data is visible.
 
-Invoice statuses: **ฉบับร่าง** · **ออกแล้ว** · **ชำระแล้ว** · **เกินกำหนด**
+Statuses: **ฉบับร่าง** · **ออกแล้ว/ส่งแล้ว** · **ชำระแล้ว** · **เกินกำหนด** · **ตอบรับแล้ว** · **ปฏิเสธ** · **หมดอายุ** · **ยกเลิก**
 
 ---
 
@@ -105,9 +119,11 @@ Invoice statuses: **ฉบับร่าง** · **ออกแล้ว** · *
 
 ```
 Browser ──▶ Next.js 16 (App Router) ──▶ Prisma ──▶ SQLite (prisma/dev.db)
-                │  server actions recompute every total via lib/tax.ts
+                │  server actions recompute every total (incl. discounts) via lib/tax.ts
+                │  one Invoice table, discriminated by docType (lib/docTypes.ts)
                 ├─ NextAuth (JWT: companyId + role) · proxy.ts gates routes
-                └─ /api/invoices/[id]/pdf · /wht  ──▶ @react-pdf/renderer (Sarabun)
+                └─ /api/invoices/[id]/pdf · /wht · /etax ──▶ @react-pdf/renderer (Sarabun)
+                                                         └─ pdf-lib + @signpdf (e-Tax PDF/A-3 + PAdES)
 ```
 
 | Topic | Decision |
@@ -116,7 +132,11 @@ Browser ──▶ Next.js 16 (App Router) ──▶ Prisma ──▶ SQLite (pri
 | Integer satang | All amounts stored as integer satang (baht × 100). Rounding is half-away-from-zero applied to VAT and WHT only; net is exact integer arithmetic. No floating-point drift. |
 | Tenant isolation is structural | Every update and delete uses `where: { id, companyId }` — a forged ID can never reach another company's row. Enforced by `requireSession()` / `requireWriter()` from `lib/tenant.ts`. |
 | Poka-yoke on issue | `issueInvoice` runs the มาตรา 86/4 eight-field check before changing status. Anything missing is returned as a Thai error list; the document stays DRAFT. |
-| Atomic invoice numbers | A per-company-per-year `InvoiceCounter` increments inside a transaction. Concurrent issues cannot collide and a deleted invoice never re-issues its number. |
+| Atomic, per-series numbers | `TAX_INVOICE` keeps the legacy `InvoiceCounter` (`INV-`); every other type uses a `DocumentCounter(companyId, series, year)`. Both increment inside a transaction, so concurrent issues never collide and a deleted draft never re-issues its number. |
+| One document engine | All seven types share the `Invoice` table, discriminated by `docType`. `lib/docTypes.ts` is the single source of truth for each type's title, series, status machine, issue gate, and conversion edges. |
+| Discounts are server-truth | Per-line and whole-document discounts resolve to integer satang and clamp to `[0, base]` in `computeTotals` before `lib/tax.ts` runs — VAT and WHT compute off the post-discount base. The tax engine's tested contract is untouched. |
+| Conversion keeps lineage | `convertDocument` clones items + discounts into a fresh DRAFT of the target type, links `sourceId`, and audits it. The detail page shows both directions of the chain. |
+| Branding in the database | Logo / seal / signature are stored as validated base64 data URLs on `Company` (≤300 KB, PNG/JPG) — no filesystem or volume dependency, so PDFs carry branding on any host. |
 | Rates as data, not code | Withholding and VAT rates live in `TaxSetting` (editable in **ตั้งค่าภาษี**). Correcting a rate never requires a deploy. Seeded defaults: ขนส่งล้วน 1% · ขนส่งพ่วงบริการ 3% · ค่าเช่า 5% · ค่าโฆษณา 2%. |
 | WHT rate on 50 ทวิ derived from stored amounts | `whtRatePct` is computed from the stored satang values at PDF time — a rate edit after issue cannot change the printed rate on a legal certificate already issued. |
 | Bundled Thai font | Sarabun ships in the repo under `public/fonts`. PDFs render Thai correctly with no network call, and align with the ETDA e-Tax reference font (THSarabun). |
@@ -134,6 +154,8 @@ Browser ──▶ Next.js 16 (App Router) ──▶ Prisma ──▶ SQLite (pri
 | --- | --- | --- |
 | `NEXTAUTH_URL` | `http://localhost:3000` | Base URL for NextAuth callbacks |
 | `NEXTAUTH_SECRET` | — | Session signing secret — generate with `openssl rand -base64 32` |
+| `ETAX_PFX_BASE64` | — | Optional. Base64 of the seller's PKCS#12 (.pfx) certificate. When set with the passphrase, `/api/invoices/[id]/etax` returns a PAdES-signed PDF/A-3; otherwise it returns the ขมธอ.3-2560 XML. |
+| `ETAX_PFX_PASSPHRASE` | — | Optional. Passphrase for the e-Tax certificate above. |
 
 The SQLite path is set in `prisma/schema.prisma` (`file:./dev.db`).
 
@@ -156,7 +178,7 @@ WHT threshold: no withholding when subtotal < 1,000 baht (100,000 satang) per Th
 
 GitHub Actions runs on every push and pull request to `main`:
 
-1. `npm run test:coverage` — full 155-test suite + v8 coverage thresholds (gates the PR).
+1. `npm run test:coverage` — full 182-test suite + v8 coverage thresholds (gates the PR).
 2. `npm run build` — type-check + bundle every route.
 
 Node 20 · Ubuntu latest · `npm ci` for reproducible installs.
@@ -168,10 +190,12 @@ Node 20 · Ubuntu latest · `npm ci` for reproducible installs.
 - [x] Phase 1 — auth + tenant isolation, Customer/Service CRUD, create-invoice with live totals, poka-yoke มาตรา 86/4 issue gate, tax invoice + 50 ทวิ PDFs, atomic numbering, audit log
 - [x] Phase 2 — pricing modes (FLAT / WEIGHT / DISTANCE), copy-invoice, multi-shipment tracking, dashboard (month / unpaid / overdue), auto-OVERDUE
 - [x] Phase 3 partial — monthly ภ.ง.ด./ภ.พ.30 summary with CSV export, e-Tax XML builder/validator and carrier state mapper (unit-tested stubs)
-- [ ] e-Tax Invoice — ETDA PDF/A-3 + XML per ขมธอ.3-2560 v2.0 + digital signature (interface stub exists in `lib/etax.ts`)
+- [x] **Document suite** — quotation, billing note, tax invoice, receipt, receipt-substitute, credit/debit note on one engine, with per-series numbering and type-aware issue gates
+- [x] **Discounts** — per-line and whole-document discounts in the tax engine, form, and PDF
+- [x] **Conversion workflow** — quotation → invoice → receipt (and tax invoice → credit/debit note), with lineage links
+- [x] **Branding** — company logo / seal / signature rendered on every document PDF
+- [x] **e-Tax export** — Invoice → ขมธอ.3-2560 XML, with a pluggable PAdES + PDF/A-3 signer (`pdf-lib` + `@signpdf`); supply a real certificate via `ETAX_PFX_BASE64` to emit signed files. Validate against ETDA's XSD with the company's certificate before live filing.
 - [ ] Carrier API integrations — live endpoints (`lib/carriers.ts` adapter defined, throws until implemented)
-- [ ] Audit-log viewer UI
-- [ ] Invite STAFF / VIEWER users
 - [ ] Production hardening — PostgreSQL, Playwright e2e, login rate-limiting, e-Withholding 1% reduced-rate
 
 ---
