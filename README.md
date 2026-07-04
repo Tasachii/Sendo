@@ -1,6 +1,6 @@
 # Sendo（センド）— Thai logistics invoicing
 
-[![Tests](https://img.shields.io/badge/tests-155_passed-4ade80?style=flat-square)](https://github.com/Tasachii/Sendo/actions)
+[![Tests](https://img.shields.io/badge/tests-186_passed-4ade80?style=flat-square)](https://github.com/Tasachii/Sendo/actions)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 [![CI](https://github.com/Tasachii/Sendo/actions/workflows/ci.yml/badge.svg)](https://github.com/Tasachii/Sendo/actions/workflows/ci.yml)
 
@@ -82,7 +82,7 @@ npm run dev              # start the app on http://localhost:3000
 npm run build            # type-check + bundle every route (same step CI runs)
 npm start                # serve the production build locally
 npm run lint             # ESLint across the project
-npm test                 # Vitest — 182 tests across 19 files
+npm test                 # Vitest — 186 tests across 21 files
 npm run test:coverage    # same suite + v8 coverage report (gates CI thresholds)
 npm run test:watch       # Vitest in watch mode
 npm run db:migrate       # prisma migrate dev — apply new migrations
@@ -163,12 +163,16 @@ The SQLite path is set in `prisma/schema.prisma` (`file:./dev.db`).
 
 Seeded into `TaxSetting` per company. Editable in **ตั้งค่าภาษี** without a code change.
 
-| Job type | Label | VAT | WHT |
+| Job type key | Label | VAT | WHT |
 | --- | --- | --- | --- |
-| `TRANSPORT` | ขนส่งล้วน | 7% | 1% |
-| `TRANSPORT_SERVICE` | ขนส่งพ่วงบริการ | 7% | 3% |
-| `RENTAL` | ค่าเช่า | 7% | 5% |
-| `ADVERTISING` | ค่าโฆษณา | 7% | 2% |
+| `transport_only` | ขนส่งล้วน (จดทะเบียนขนส่ง) | ยกเว้น (exempt) | 1% |
+| `transport_service` | ขนส่งพ่วงบริการ | 7% | 3% |
+| `service` | ค่าบริการ / รับจ้างทำของ | 7% | 3% |
+| `rent` | ค่าเช่า | 7% | 5% |
+| `advertising` | ค่าโฆษณา | 7% | 2% |
+| `custom` | กำหนดเอง | 7% | 3% |
+
+> Pure domestic transport (ขนส่งในราชอาณาจักร) is **VAT-exempt** under Revenue Code §81(1)(ณ); only transport bundled with other services is standard-rated. These keys and rates are the literals seeded from `lib/taxDefaults.ts` — a drift test (`tests/readme-rates.test.ts`) fails if this table and that file disagree.
 
 WHT threshold: no withholding when subtotal < 1,000 baht (100,000 satang) per Thai Revenue rule §2.1.4.
 
@@ -178,8 +182,9 @@ WHT threshold: no withholding when subtotal < 1,000 baht (100,000 satang) per Th
 
 GitHub Actions runs on every push and pull request to `main`:
 
-1. `npm run test:coverage` — full 182-test suite + v8 coverage thresholds (gates the PR).
-2. `npm run build` — type-check + bundle every route.
+1. `npm run lint` — ESLint across the project (zero errors).
+2. `npm run test:coverage` — full 186-test suite + v8 coverage thresholds (gates the PR).
+3. `npm run build` — type-check + bundle every route.
 
 Node 20 · Ubuntu latest · `npm ci` for reproducible installs.
 
