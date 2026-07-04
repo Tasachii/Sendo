@@ -6,6 +6,7 @@ import {
   CARRIER_CONFIG,
   carrierAdapters,
   type CarrierConfig,
+  type RawTrackingEvent,
 } from "../lib/carriers";
 
 describe("normalizeState", () => {
@@ -74,7 +75,7 @@ describe("CARRIER_CONFIG header builders (locks the B1 fix)", () => {
 describe("httpCarrierAdapter (graceful degradation)", () => {
   const config: CarrierConfig = {
     endpoint: (t) => `https://example.test/track/${t}`,
-    extractLatest: (j: any) => j?.events?.at?.(-1) ?? null,
+    extractLatest: (j) => (j as { events?: RawTrackingEvent[] } | undefined)?.events?.at(-1) ?? null,
   };
 
   it("maps a successful JSON response to a normalized status", async () => {

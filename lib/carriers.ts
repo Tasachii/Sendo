@@ -58,6 +58,27 @@ export function normalizeState(raw: string | null | undefined): TrackingState {
 /** Shape a carrier endpoint is expected to return after we extract the latest event. */
 export type RawTrackingEvent = { status?: string; description?: string; timestamp?: string };
 
+/** Narrow an unknown JSON value to an indexable object, or null. */
+function asRecord(v: unknown): Record<string, unknown> | null {
+  return typeof v === "object" && v !== null ? (v as Record<string, unknown>) : null;
+}
+
+/** Walk a path of object keys through unknown JSON; returns undefined if any hop misses. */
+function dig(v: unknown, ...path: string[]): unknown {
+  let cur: unknown = v;
+  for (const key of path) {
+    const rec = asRecord(cur);
+    if (!rec) return undefined;
+    cur = rec[key];
+  }
+  return cur;
+}
+
+/** Last element of an unknown value when it is a non-empty array, shaped as an event. */
+function latestEvent(v: unknown): RawTrackingEvent | null {
+  return Array.isArray(v) && v.length > 0 ? (v[v.length - 1] as RawTrackingEvent) : null;
+}
+
 export type CarrierConfig = {
   endpoint: (trackingNo: string) => string;
   /** Pull the latest event out of the carrier's (varied) JSON response. */
@@ -114,7 +135,7 @@ export const CARRIER_CONFIG: Record<CarrierId, CarrierConfig> = {
       if (process.env.CARRIER_FLASH_KEY) h.Authorization = `Bearer ${process.env.CARRIER_FLASH_KEY}`;
       return h;
     },
-    extractLatest: (j: any) => j?.data?.routes?.at?.(-1) ?? null,
+    extractLatest: (j) => latestEvent(dig(j, "data", "routes")),
   },
   kerry: {
     endpoint: (t) => `https://th.kerryexpress.com/api/track/${encodeURIComponent(t)}`,
@@ -123,7 +144,7 @@ export const CARRIER_CONFIG: Record<CarrierId, CarrierConfig> = {
       if (process.env.CARRIER_KERRY_KEY) h["x-api-key"] = process.env.CARRIER_KERRY_KEY;
       return h;
     },
-    extractLatest: (j: any) => j?.events?.at?.(-1) ?? null,
+    extractLatest: (j) => latestEvent(dig(j, "events")),
   },
   thailand_post: {
     endpoint: (t) => `https://trackapi.thailandpost.co.th/post/api/v1/track/${encodeURIComponent(t)}`,
@@ -132,10 +153,10 @@ export const CARRIER_CONFIG: Record<CarrierId, CarrierConfig> = {
       if (process.env.CARRIER_THP_KEY) h.Authorization = `Token ${process.env.CARRIER_THP_KEY}`;
       return h;
     },
-    extractLatest: (j: any) => {
-      const items = j?.response?.items;
-      const first = items && Object.values(items)[0];
-      return Array.isArray(first) ? first.at(-1) ?? null : null;
+    extractLatest: (j) => {
+      const items = asRecord(dig(j, "response", "items"));
+      const first = items ? Object.values(items)[0] : undefined;
+      return latestEvent(first);
     },
   },
   jt: {
@@ -145,7 +166,7 @@ export const CARRIER_CONFIG: Record<CarrierId, CarrierConfig> = {
       if (process.env.CARRIER_JT_KEY) h.Authorization = `Bearer ${process.env.CARRIER_JT_KEY}`;
       return h;
     },
-    extractLatest: (j: any) => j?.data?.details?.at?.(-1) ?? null,
+    extractLatest: (j) => latestEvent(dig(j, "data", "details")),
   },
 };
 

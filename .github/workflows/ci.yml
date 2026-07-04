@@ -20,5 +20,6 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx prisma migrate deploy   # create the local SQLite db for tests
+      - run: npm run lint                # ESLint must pass with zero errors
       - run: npm run test:coverage       # full suite + v8 coverage thresholds (gates the PR)
       - run: npm run build               # type-checks + bundles every route
