@@ -9,7 +9,8 @@ const { getSessionContext, monthlySummary } = vi.hoisted(() => ({
 vi.mock("@/lib/tenant", () => ({ getSessionContext }));
 vi.mock("@/lib/reports", () => ({ monthlySummary }));
 
-import { csvCell, GET } from "../app/api/reports/csv/route";
+import { GET } from "../app/api/reports/csv/route";
+import { csvCell } from "../lib/csv";
 import type { MonthRow } from "../lib/reports";
 
 describe("csvCell — formula-injection neutralization", () => {

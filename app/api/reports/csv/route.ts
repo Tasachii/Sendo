@@ -1,23 +1,7 @@
 import { getSessionContext } from "@/lib/tenant";
 import { monthlySummary } from "@/lib/reports";
 import { satangToBaht } from "@/lib/money";
-
-/**
- * Make a single CSV cell safe:
- *  - neutralize spreadsheet formula/DDE injection: a cell that starts with
- *    = + - @ TAB or CR is prefixed with a leading apostrophe so Excel/Sheets
- *    treats it as text, not a formula.
- *  - RFC-4180 quoting: a cell containing a comma, quote, CR or LF is wrapped in
- *    double quotes with any internal quote doubled.
- */
-export function csvCell(v: string | number): string {
-  let s = String(v);
-  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
-  if (/[",\r\n]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
-  return s;
-}
-
-const csvRow = (cells: (string | number)[]) => cells.map(csvCell).join(",");
+import { csvRow } from "@/lib/csv";
 
 export async function GET(req: Request) {
   const ctx = await getSessionContext();
