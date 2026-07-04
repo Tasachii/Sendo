@@ -23,8 +23,11 @@ export async function registerCompany(formData: FormData): Promise<RegisterResul
   const data = parsed.data;
   const email = data.email.toLowerCase().trim();
 
+  // Generic failure on a taken email: never confirm to an anonymous caller that a
+  // specific address is registered (user-enumeration guard). The message stays the
+  // same shape as a validation error so the two are indistinguishable.
   const existing = await db.user.findUnique({ where: { email } });
-  if (existing) return { ok: false, error: "อีเมลนี้ถูกใช้งานแล้ว" };
+  if (existing) return { ok: false, error: "ไม่สามารถสมัครสมาชิกด้วยข้อมูลนี้ได้ กรุณาตรวจสอบแล้วลองใหม่ หรือใช้อีเมลอื่น" };
 
   await db.company.create({
     data: {

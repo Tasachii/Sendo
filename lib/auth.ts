@@ -4,6 +4,12 @@ import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { loginThrottle } from "@/lib/rate-limit";
 
+// A valid bcrypt hash (cost 10, matching registration) of a throwaway string.
+// When the email doesn't exist we still run one bcrypt.compare against this so a
+// missing user costs the same time as a wrong password — closes the timing
+// side-channel that would otherwise let an attacker enumerate registered emails.
+const DUMMY_HASH = bcrypt.hashSync("sendo-nonexistent-user", 10);
+
 // Best-effort client IP from the proxy chain; falls back to a constant so the
 // throttle still counts per-email when no IP is available.
 function clientIp(req?: { headers?: Record<string, string | undefined> | unknown }): string {
@@ -32,6 +38,9 @@ export const authOptions: NextAuthOptions = {
 
         const user = await db.user.findUnique({ where: { email } });
         if (!user) {
+          // Constant-time: spend the same bcrypt work as a real (wrong) password
+          // so response time can't distinguish a missing email from a valid one.
+          await bcrypt.compare(credentials.password, DUMMY_HASH);
           loginThrottle.recordFailure(email, ip);
           return null;
         }
