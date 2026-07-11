@@ -4,8 +4,9 @@ import { db } from "@/lib/db";
 import { registerThaiFont } from "@/components/pdf/fonts";
 import { InvoicePDF } from "@/components/pdf/InvoicePDF";
 import { docMeta } from "@/lib/docTypes";
+import { legalDate } from "@/lib/legalDate";
 
-const iso = (d: Date | null | undefined) => (d ? d.toISOString().slice(0, 10) : null);
+const legalDateOrNull = (d: Date | null | undefined) => (d ? legalDate(d) : null);
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -21,9 +22,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
   const meta = docMeta(inv.docType);
   const secondaryValue =
-    meta.dateField === "dueDate" ? iso(inv.dueDate)
-    : meta.dateField === "validUntil" ? iso(inv.validUntil)
-    : meta.dateField === "receivedDate" ? iso(inv.receivedDate)
+    meta.dateField === "dueDate" ? legalDateOrNull(inv.dueDate)
+    : meta.dateField === "validUntil" ? legalDateOrNull(inv.validUntil)
+    : meta.dateField === "receivedDate" ? legalDateOrNull(inv.receivedDate)
     : null;
 
   registerThaiFont();
@@ -32,7 +33,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       data={{
         docType: inv.docType,
         number: inv.number,
-        issueDate: iso(inv.issueDate)!,
+        issueDate: legalDate(inv.issueDate),
         secondaryDate: secondaryValue ? { label: meta.dateLabel, value: secondaryValue } : null,
         company: { name: inv.company.name, taxId: inv.company.taxId, address: inv.company.address, branch: inv.company.branch },
         customer: { name: inv.customer.name, taxId: inv.customer.taxId, address: inv.customer.address, branch: inv.customer.branch },

@@ -87,6 +87,22 @@ export function effectiveTaxSetting(type: DocType, setting: TaxSettingLike): Tax
 }
 
 /**
+ * Explicit legal-status policy for VAT reports. This is intentionally an
+ * allowlist: adding a new workflow status cannot silently make it tax-countable.
+ */
+const VAT_REPORT_STATUS_POLICY: Partial<Record<DocType, readonly InvoiceStatus[]>> = {
+  TAX_INVOICE: ["SENT", "PAID", "OVERDUE"],
+};
+
+export function vatReportCountableStatuses(type: DocType): readonly InvoiceStatus[] {
+  return VAT_REPORT_STATUS_POLICY[type] ?? [];
+}
+
+export function isCountableForVatReport(type: DocType, status: InvoiceStatus): boolean {
+  return vatReportCountableStatuses(type).includes(status);
+}
+
+/**
  * Allowed status transitions per document family (the state machine). DRAFT only leaves
  * via the issue action, so it has no manual transitions. A legally-issued document can
  * never be un-issued back to DRAFT.

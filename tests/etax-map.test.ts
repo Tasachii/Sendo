@@ -24,6 +24,15 @@ describe("etax-map", () => {
     expect(validateETaxDocument(doc)).toEqual([]);
   });
 
+  it("uses the Asia/Bangkok legal date at a UTC month boundary", () => {
+    const doc = invoiceToETaxDocument(
+      inv({ issueDate: new Date("2026-07-31T18:30:00.000Z") }),
+      company,
+      customer
+    );
+    expect(doc.issueDate).toBe("2026-08-01");
+  });
+
   it("maps credit/debit notes to 81/80", () => {
     expect(invoiceToETaxDocument(inv({ docType: "CREDIT_NOTE" }), company, customer).documentType).toBe("81");
     expect(invoiceToETaxDocument(inv({ docType: "DEBIT_NOTE" }), company, customer).documentType).toBe("80");

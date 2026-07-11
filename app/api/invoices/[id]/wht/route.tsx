@@ -3,6 +3,7 @@ import { getSessionContext } from "@/lib/tenant";
 import { db } from "@/lib/db";
 import { registerThaiFont } from "@/components/pdf/fonts";
 import { WhtCertPDF } from "@/components/pdf/WhtCertPDF";
+import { legalDate } from "@/lib/legalDate";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -20,14 +21,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const setting = await db.taxSetting.findFirst({ where: { companyId: ctx.companyId, jobType: inv.jobType } });
   // Derive the rate from what was ACTUALLY withheld on this invoice (stored amounts),
   // not the live TaxSetting — so editing the rate after issue can't change a legal cert (A13).
-  const whtRatePct = inv.subtotalSatang > 0 ? Math.round((inv.whtSatang / inv.subtotalSatang) * 100) : 0;
+  const whtRatePct = inv.subtotalSatang > 0 ? (inv.whtSatang * 100) / inv.subtotalSatang : 0;
 
   registerThaiFont();
   const buffer = await renderToBuffer(
     <WhtCertPDF
       data={{
         number: inv.number,
-        issueDate: inv.issueDate.toISOString().slice(0, 10),
+        issueDate: legalDate(inv.issueDate),
         withholder: { name: inv.customer.name, taxId: inv.customer.taxId, address: inv.customer.address },
         payee: { name: inv.company.name, taxId: inv.company.taxId, address: inv.company.address },
         incomeLabel: setting?.label ?? "ค่าขนส่ง/บริการ",

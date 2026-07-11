@@ -2,12 +2,13 @@ import Link from "next/link";
 import { requireSession } from "@/lib/tenant";
 import { formatBaht } from "@/lib/money";
 import { monthlySummary, availableYears } from "@/lib/reports";
+import { currentLegalYear } from "@/lib/legalDate";
 
 export default async function ReportsPage({ searchParams }: { searchParams: Promise<{ year?: string }> }) {
   const ctx = await requireSession();
   const sp = await searchParams;
   const years = await availableYears(ctx.companyId);
-  const year = Number(sp.year) || years[0] || new Date().getFullYear();
+  const year = Number(sp.year) || years[0] || currentLegalYear();
   const rows = await monthlySummary(ctx.companyId, year);
 
   const total = rows.reduce(

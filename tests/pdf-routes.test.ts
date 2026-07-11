@@ -118,6 +118,15 @@ describe("GET /api/invoices/[id]/pdf", () => {
       subtotalSatang: 2_000_000,
     });
   });
+
+  it("uses the Asia/Bangkok legal date at a UTC month boundary", async () => {
+    getSessionContext.mockResolvedValue({ companyId: "c1" });
+    dbInvoiceFindFirst.mockResolvedValue(baseInvoice({
+      issueDate: new Date("2026-07-31T18:30:00.000Z"),
+    }));
+    await pdfGET(req, params("abc"));
+    expect(renderedData().issueDate).toBe("2026-08-01");
+  });
 });
 
 describe("GET /api/invoices/[id]/wht", () => {
@@ -183,6 +192,27 @@ describe("GET /api/invoices/[id]/wht", () => {
     dbTaxSettingFindFirst.mockResolvedValue({ label: "ค่าขนส่ง" });
     await whtGET(req, params("abc"));
     expect(renderedData().whtRatePct).toBe(3);
+  });
+
+  it.each([
+    { whtSatang: 30_000, expectedRate: 1.5 },
+    { whtSatang: 15_000, expectedRate: 0.75 },
+  ])("preserves a $expectedRate% fractional stored WHT rate", async ({ whtSatang, expectedRate }) => {
+    getSessionContext.mockResolvedValue({ companyId: "c1" });
+    dbInvoiceFindFirst.mockResolvedValue(baseInvoice({ whtSatang, subtotalSatang: 2_000_000 }));
+    dbTaxSettingFindFirst.mockResolvedValue({ label: "ค่าขนส่ง" });
+    await whtGET(req, params("abc"));
+    expect(renderedData().whtRatePct).toBe(expectedRate);
+  });
+
+  it("uses the Asia/Bangkok legal date on the WHT certificate", async () => {
+    getSessionContext.mockResolvedValue({ companyId: "c1" });
+    dbInvoiceFindFirst.mockResolvedValue(baseInvoice({
+      issueDate: new Date("2026-07-31T18:30:00.000Z"),
+    }));
+    dbTaxSettingFindFirst.mockResolvedValue({ label: "ค่าขนส่ง" });
+    await whtGET(req, params("abc"));
+    expect(renderedData().issueDate).toBe("2026-08-01");
   });
 
   it("the derived rate is STABLE even when the live TaxSetting changed post-issue (A13)", async () => {

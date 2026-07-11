@@ -1,5 +1,6 @@
 import type { DocType } from "@prisma/client";
 import type { ETaxDocument, ETaxLine } from "@/lib/etax";
+import { legalDate } from "@/lib/legalDate";
 
 /**
  * Map a stored document into the ETDA e-Tax model (lib/etax.ts). Pure + tested.
@@ -54,7 +55,7 @@ export function invoiceToETaxDocument(inv: InvLike, company: CompanyLike, custom
   return {
     documentType,
     number: inv.number,
-    issueDate: inv.issueDate.toISOString().slice(0, 10),
+    issueDate: legalDate(inv.issueDate),
     seller: { name: company.name, taxId: company.taxId, branchCode: toBranchCode(company.branch), address: company.address },
     buyer: { name: customer.name, taxId: customer.taxId ?? "", branchCode: toBranchCode(customer.branch), address: customer.address ?? "" },
     lines,

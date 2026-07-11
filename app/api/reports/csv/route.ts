@@ -2,12 +2,13 @@ import { getSessionContext } from "@/lib/tenant";
 import { monthlySummary } from "@/lib/reports";
 import { satangToBaht } from "@/lib/money";
 import { csvRow } from "@/lib/csv";
+import { currentLegalYear } from "@/lib/legalDate";
 
 export async function GET(req: Request) {
   const ctx = await getSessionContext();
   if (!ctx) return new Response("Unauthorized", { status: 401 });
 
-  const year = Number(new URL(req.url).searchParams.get("year")) || new Date().getFullYear();
+  const year = Number(new URL(req.url).searchParams.get("year")) || currentLegalYear();
   const rows = await monthlySummary(ctx.companyId, year);
 
   const b = (s: number) => satangToBaht(s).toFixed(2);
