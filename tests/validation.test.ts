@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { registerSchema, customerSchema, invoiceItemSchema } from "../lib/validation";
+import { registerSchema, customerSchema, invoiceItemSchema, documentDraftSchema, documentConversionSchema, isISOCalendarDate } from "../lib/validation";
 
 const baseRegister = {
   companyName: "บ. ขนส่ง",
@@ -80,5 +80,39 @@ describe("invoiceItemSchema", () => {
   it("defaults pricingMode to FLAT", () => {
     const r = invoiceItemSchema.parse({ description: "x", qty: 1, unitPriceBaht: 10 });
     expect(r.pricingMode).toBe("FLAT");
+  });
+});
+
+describe("documentDraftSchema dates and legal note fields", () => {
+  const base = {
+    docType: "TAX_INVOICE", customerId: "c", jobType: "service", issueDate: "2026-07-11",
+    items: [{ description: "x", qty: 1, unitPriceBaht: 1000 }], shipments: [],
+  };
+
+  it("strictly rejects impossible and malformed calendar dates", () => {
+    expect(isISOCalendarDate("2024-02-29")).toBe(true);
+    expect(isISOCalendarDate("2026-02-29")).toBe(false);
+    expect(documentDraftSchema.safeParse({ ...base, issueDate: "not-a-date" }).success).toBe(false);
+    expect(documentDraftSchema.safeParse({ ...base, issueDate: "2026-02-30" }).success).toBe(false);
+  });
+
+  it("rejects secondary dates before the issue date", () => {
+    expect(documentDraftSchema.safeParse({ ...base, dueDate: "2026-07-10" }).success).toBe(false);
+  });
+
+  it.each(["CREDIT_NOTE", "DEBIT_NOTE"] as const)("requires reason and reference for %s", (docType) => {
+    expect(documentDraftSchema.safeParse({ ...base, docType, reason: "", refDocNumber: "" }).success).toBe(false);
+    expect(documentDraftSchema.safeParse({ ...base, docType, reason: "แก้ไขยอด", refDocNumber: "INV-1" }).success).toBe(true);
+  });
+});
+
+describe("documentConversionSchema", () => {
+  it.each(["CREDIT_NOTE", "DEBIT_NOTE"] as const)("requires a trimmed reason for %s", (target) => {
+    expect(documentConversionSchema.safeParse({ target, reason: "   " }).success).toBe(false);
+    expect(documentConversionSchema.safeParse({ target, reason: "แก้ไขยอด" }).success).toBe(true);
+  });
+
+  it("does not require a reason for ordinary conversion targets", () => {
+    expect(documentConversionSchema.safeParse({ target: "RECEIPT" }).success).toBe(true);
   });
 });

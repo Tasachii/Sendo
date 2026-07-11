@@ -40,18 +40,23 @@ export function createETaxSigner(): ETaxDeps {
 
     async sign(pdf: Uint8Array, credential: SigningCredential): Promise<Uint8Array> {
       type SignPdf = { sign(pdf: Buffer, signer: unknown): Promise<Buffer> };
-      const { plainAddPlaceholder } = await import("@signpdf/placeholder-plain");
+      const { PDFDocument } = await import("pdf-lib");
+      const { pdflibAddPlaceholder } = await import("@signpdf/placeholder-pdf-lib");
+      const { SUBFILTER_ETSI_CADES_DETACHED } = await import("@signpdf/utils");
       const signpdfMod = (await import("@signpdf/signpdf")) as { default?: SignPdf } & Partial<SignPdf>;
       const { P12Signer } = await import("@signpdf/signer-p12");
       const signpdf: SignPdf = signpdfMod.default ?? (signpdfMod as SignPdf);
 
-      const withPlaceholder = plainAddPlaceholder({
-        pdfBuffer: Buffer.from(pdf),
+      const pdfDoc = await PDFDocument.load(pdf);
+      pdflibAddPlaceholder({
+        pdfDoc,
         reason: "e-Tax Invoice (ETDA)",
         contactInfo: "",
         name: "",
         location: "",
+        subFilter: SUBFILTER_ETSI_CADES_DETACHED,
       });
+      const withPlaceholder = Buffer.from(await pdfDoc.save({ useObjectStreams: false }));
       const signer = new P12Signer(credential.pfx, { passphrase: credential.passphrase });
       const signed: Buffer = await signpdf.sign(withPlaceholder, signer);
       return new Uint8Array(signed);

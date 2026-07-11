@@ -31,6 +31,8 @@ export type IssueCheckInput = {
     issueDate: Date | null;
     payeeName?: string | null;
     reason?: string | null;
+    refDocNumber?: string | null;
+    sourceId?: string | null;
   };
   items: { description: string; qty: number; unitPriceSatang: number }[];
 };
@@ -78,6 +80,10 @@ export function validateForIssue(input: IssueCheckInput): string[] {
       errors.push("ผู้ซื้อ: ลูกค้าจด VAT ต้องระบุเลขประจำตัวผู้เสียภาษี");
     // 8 — buyer branch
     if (!customer.branch?.trim()) errors.push("ผู้ซื้อ: ยังไม่ได้ระบุสำนักงานใหญ่/สาขา");
+    if (input.docType === "CREDIT_NOTE" || input.docType === "DEBIT_NOTE") {
+      if (!invoice.reason?.trim()) errors.push("ยังไม่ได้ระบุเหตุผลของใบลดหนี้/ใบเพิ่มหนี้");
+      if (!invoice.sourceId && !invoice.refDocNumber?.trim()) errors.push("ยังไม่ได้ระบุเอกสารต้นทางที่อ้างอิง");
+    }
   } else {
     // LIGHT — commercial document: just need the buyer's name.
     if (!customer.name?.trim()) errors.push("ผู้ซื้อ: ยังไม่ได้ระบุชื่อลูกค้า");

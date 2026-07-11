@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { DocType, InvoiceStatus } from "@prisma/client";
 import { issueInvoice, setInvoiceStatus, deleteInvoice, duplicateInvoice, convertDocument } from "@/app/actions/invoices";
-import { docMeta, conversionTargets, allowedTransitions } from "@/lib/docTypes";
+import { docMeta, conversionTargets, allowedTransitions, canConvertStatus } from "@/lib/docTypes";
 
 const STATUS_LABEL: Partial<Record<InvoiceStatus, string>> = {
   PAID: "ทำเครื่องหมายว่าชำระแล้ว",
@@ -25,7 +25,7 @@ export function InvoiceActions({ id, docType, status, hasWht, canWrite }: {
   const meta = docMeta(docType);
   const isDraft = status === "DRAFT";
   const issued = status !== "DRAFT";
-  const targets = issued ? conversionTargets(docType) : [];
+  const targets = canConvertStatus(status) ? conversionTargets(docType) : [];
   const transitions = allowedTransitions(docType, status).filter((t) => STATUS_BTNS.includes(t));
 
   async function onIssue() {
@@ -43,8 +43,15 @@ export function InvoiceActions({ id, docType, status, hasWht, canWrite }: {
     router.refresh();
   }
   async function onConvert(target: DocType) {
+    let reason: string | undefined;
+    if (target === "CREDIT_NOTE" || target === "DEBIT_NOTE") {
+      const entered = window.prompt(`กรุณาระบุเหตุผลสำหรับ${docMeta(target).short}`);
+      if (entered === null) return;
+      reason = entered.trim();
+      if (!reason) return alert("กรุณาระบุเหตุผลก่อนแปลงเอกสาร");
+    }
     setBusy(true);
-    const res = await convertDocument(id, target);
+    const res = await convertDocument(id, target, { reason });
     setBusy(false);
     if (!res.ok) return alert(res.error);
     router.push(`/invoices/${res.id}`);

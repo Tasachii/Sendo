@@ -1,13 +1,10 @@
 import Link from "next/link";
-import type { DocType } from "@prisma/client";
 import { requireSession, db } from "@/lib/tenant";
 import { formatBaht } from "@/lib/money";
 import { sweepOverdue } from "@/lib/overdue";
 import { StatusBadge } from "@/components/StatusBadge";
 import { DocTypeBadge } from "@/components/DocTypeBadge";
-
-// Money cards count the billing family; quotations are tracked separately as pipeline.
-const BILLING: DocType[] = ["BILLING_NOTE", "TAX_INVOICE", "RECEIPT"];
+import { dashboardMetrics } from "@/lib/dashboard";
 
 export default async function DashboardPage() {
   const ctx = await requireSession();
@@ -16,19 +13,19 @@ export default async function DashboardPage() {
 
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
-  const [monthAgg, unpaidAgg, overdueAgg, quoteAgg, recent] = await Promise.all([
-    db.invoice.aggregate({ where: { companyId, docType: { in: BILLING }, issueDate: { gte: monthStart } }, _sum: { netSatang: true }, _count: true }),
-    db.invoice.aggregate({ where: { companyId, docType: { in: BILLING }, status: { in: ["SENT", "OVERDUE"] } }, _sum: { netSatang: true }, _count: true }),
-    db.invoice.aggregate({ where: { companyId, docType: { in: BILLING }, status: "OVERDUE" }, _sum: { netSatang: true }, _count: true }),
+  const [billingRows, quoteAgg, recent] = await Promise.all([
+    db.invoice.findMany({ where: { companyId }, select: { id: true, sourceId: true, docType: true, status: true, issueDate: true, netSatang: true } }),
     db.invoice.aggregate({ where: { companyId, docType: "QUOTATION", status: { in: ["SENT", "ACCEPTED"] } }, _sum: { netSatang: true }, _count: true }),
     db.invoice.findMany({ where: { companyId }, include: { customer: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take: 6 }),
   ]);
+  const metrics = dashboardMetrics(billingRows, monthStart, monthEnd);
 
   const cards = [
-    { label: "ยอดออกบิลเดือนนี้", value: `${formatBaht(monthAgg._sum.netSatang ?? 0)} ฿`, sub: `${monthAgg._count} ใบ` },
-    { label: "ค้างชำระ", value: `${formatBaht(unpaidAgg._sum.netSatang ?? 0)} ฿`, sub: `${unpaidAgg._count} ใบ` },
-    { label: "เกินกำหนด", value: `${formatBaht(overdueAgg._sum.netSatang ?? 0)} ฿`, sub: `${overdueAgg._count} ใบ`, warn: true },
+    { label: "ยอดเอกสารที่ออกเดือนนี้ (ไม่ซ้ำ)", value: `${formatBaht(metrics.issuedThisMonth.netSatang)} ฿`, sub: `${metrics.issuedThisMonth.count} ใบล่าสุดในสายเอกสาร` },
+    { label: "ค้างชำระ (ไม่ซ้ำ)", value: `${formatBaht(metrics.unpaid.netSatang)} ฿`, sub: `${metrics.unpaid.count} ใบ` },
+    { label: "เกินกำหนด (ไม่ซ้ำ)", value: `${formatBaht(metrics.overdue.netSatang)} ฿`, sub: `${metrics.overdue.count} ใบ`, warn: true },
     { label: "ใบเสนอราคา (รอผล/ตอบรับ)", value: `${formatBaht(quoteAgg._sum.netSatang ?? 0)} ฿`, sub: `${quoteAgg._count} ใบ` },
   ];
 

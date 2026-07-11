@@ -7,7 +7,7 @@ const { getServerSession } = vi.hoisted(() => ({ getServerSession: vi.fn() }));
 vi.mock("next-auth", () => ({ getServerSession }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
-import { createDocument, convertDocument, issueInvoice } from "../app/actions/invoices";
+import { createDocument, convertDocument, issueInvoice, setInvoiceStatus } from "../app/actions/invoices";
 import { nextDocumentNumber } from "../lib/invoice";
 import { validateForIssue } from "../lib/poka-yoke";
 import { conversionTargets, allowedTransitions, docMeta } from "../lib/docTypes";
@@ -135,6 +135,10 @@ describe("convertDocument — quotation → tax invoice → receipt", () => {
     expect(inv.sourceId).toBe(quoteId);
     expect(inv.items).toHaveLength(1);
     expect(inv.items[0].description).toBe("งานออกแบบ");
+    expect(inv.subtotalSatang).toBe(500_000);
+    expect(inv.vatSatang).toBe(35_000);
+    expect(inv.whtSatang).toBe(15_000);
+    expect(inv.netSatang).toBe(520_000);
 
     // issue the invoice, then convert → receipt
     expect((await issueInvoice(inv.id)).ok).toBe(true);
@@ -145,6 +149,21 @@ describe("convertDocument — quotation → tax invoice → receipt", () => {
     expect(rec.docType).toBe("RECEIPT");
     expect(rec.number).toMatch(/^REC-/);
     expect(rec.sourceId).toBe(inv.id);
+    expect(rec.vatSatang).toBe(35_000);
+    expect(rec.whtSatang).toBe(15_000);
+    expect(rec.netSatang).toBe(520_000);
+
+    for (const target of ["CREDIT_NOTE", "DEBIT_NOTE"] as const) {
+      expect((await convertDocument(inv.id, target)).ok).toBe(false);
+      const converted = await convertDocument(inv.id, target, { reason: `เหตุผลสำหรับ ${target}` });
+      expect(converted.ok).toBe(true);
+      if (!converted.ok) continue;
+      const note = await db.invoice.findUniqueOrThrow({ where: { id: converted.id } });
+      expect(note.reason).toBe(`เหตุผลสำหรับ ${target}`);
+      expect(note.refDocNumber).toBe(inv.number);
+      expect(note.sourceId).toBe(inv.id);
+      expect((await issueInvoice(note.id)).ok).toBe(true);
+    }
 
     // the conversion was audited
     const audit = await db.auditLog.findFirst({ where: { companyId, entityId: rec.id, action: "DOC_CONVERT" } });
@@ -159,5 +178,29 @@ describe("convertDocument — quotation → tax invoice → receipt", () => {
     expect(made.ok).toBe(true);
     if (!made.ok) return;
     expect((await convertDocument(made.id, "TAX_INVOICE")).ok).toBe(false); // still DRAFT
+  });
+
+  it.each(["REJECTED", "EXPIRED"] as const)("refuses to convert a %s quotation", async (status) => {
+    const made = await createDocument({
+      docType: "QUOTATION", customerId, jobType: "service", issueDate: "2026-03-01",
+      items: [{ description: "x", qty: 1, unitPriceBaht: 100 }], shipments: [],
+    });
+    expect(made.ok).toBe(true);
+    if (!made.ok) return;
+    expect((await issueInvoice(made.id)).ok).toBe(true);
+    expect((await setInvoiceStatus(made.id, status)).ok).toBe(true);
+    expect((await convertDocument(made.id, "TAX_INVOICE")).ok).toBe(false);
+  });
+
+  it("refuses to convert a VOID tax invoice", async () => {
+    const made = await createDocument({
+      docType: "TAX_INVOICE", customerId, jobType: "service", issueDate: "2026-03-01",
+      items: [{ description: "x", qty: 1, unitPriceBaht: 100 }], shipments: [],
+    });
+    expect(made.ok).toBe(true);
+    if (!made.ok) return;
+    expect((await issueInvoice(made.id)).ok).toBe(true);
+    expect((await setInvoiceStatus(made.id, "VOID")).ok).toBe(true);
+    expect((await convertDocument(made.id, "RECEIPT")).ok).toBe(false);
   });
 });

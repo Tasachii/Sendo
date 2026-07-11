@@ -70,6 +70,22 @@ export function docMeta(type: DocType): DocTypeMeta {
   return DOC_TYPES[type] ?? DOC_TYPES.TAX_INVOICE;
 }
 
+export type TaxSettingLike = {
+  vatRate: number;
+  whtRate: number;
+  vatApplicable: boolean;
+};
+
+/** Apply document-type policy to a job's tax setting. Shared by preview and server. */
+export function effectiveTaxSetting(type: DocType, setting: TaxSettingLike): TaxSettingLike {
+  const meta = docMeta(type);
+  return {
+    vatRate: setting.vatRate,
+    whtRate: meta.showWht ? setting.whtRate : 0,
+    vatApplicable: meta.isTaxDoc && setting.vatApplicable,
+  };
+}
+
 /**
  * Allowed status transitions per document family (the state machine). DRAFT only leaves
  * via the issue action, so it has no manual transitions. A legally-issued document can
@@ -115,4 +131,8 @@ export const CONVERSIONS: Partial<Record<DocType, DocType[]>> = {
 
 export function conversionTargets(type: DocType): DocType[] {
   return CONVERSIONS[type] ?? [];
+}
+
+export function canConvertStatus(status: InvoiceStatus): boolean {
+  return !["DRAFT", "VOID", "REJECTED", "EXPIRED"].includes(status);
 }

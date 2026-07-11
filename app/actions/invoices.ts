@@ -3,12 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { Prisma, type DocType, type InvoiceStatus } from "@prisma/client";
 import { db, requireWriter, requireOwner } from "@/lib/tenant";
-import { documentDraftSchema } from "@/lib/validation";
+import { documentDraftSchema, documentConversionSchema } from "@/lib/validation";
 import { computeTotals, nextDocumentNumber } from "@/lib/invoice";
 import { validateForIssue } from "@/lib/poka-yoke";
-import { docMeta, allowedTransitions, conversionTargets } from "@/lib/docTypes";
-import { logAudit } from "@/lib/audit";
+import { docMeta, allowedTransitions, conversionTargets, effectiveTaxSetting, canConvertStatus } from "@/lib/docTypes";
+import { writeAudit } from "@/lib/audit";
 import { formatBaht } from "@/lib/money";
+import { calcTax } from "@/lib/tax";
 
 export type InvoiceActionResult =
   | { ok: true; id: string }
@@ -16,7 +17,7 @@ export type InvoiceActionResult =
 
 /** Parse an optional yyyy-mm-dd string into a Date (or null). */
 function asDate(v: string | undefined | null): Date | null {
-  return v ? new Date(v) : null;
+  return v ? new Date(`${v}T00:00:00.000Z`) : null;
 }
 
 /**
@@ -38,8 +39,7 @@ export async function createDocument(raw: unknown): Promise<InvoiceActionResult>
   if (!customer) return { ok: false, error: "ไม่พบลูกค้า" };
   if (!setting) return { ok: false, error: "ไม่พบการตั้งค่าภาษีของประเภทงานนี้" };
 
-  // Non-tax documents (quotation, billing note, receipt substitute) don't carry WHT.
-  const effectiveSetting = meta.showWht ? setting : { ...setting, whtRate: 0 };
+  const taxSetting = effectiveTaxSetting(d.docType, setting);
 
   const totals = computeTotals(
     d.items.map((it) => ({
@@ -50,7 +50,7 @@ export async function createDocument(raw: unknown): Promise<InvoiceActionResult>
       discountBaht: it.discountBaht,
       discountPct: it.discountPct,
     })),
-    effectiveSetting,
+    taxSetting,
     { docDiscountBaht: d.docDiscountBaht, docDiscountPct: d.docDiscountPct }
   );
 
@@ -59,13 +59,13 @@ export async function createDocument(raw: unknown): Promise<InvoiceActionResult>
     try {
       const created = await db.$transaction(async (tx) => {
         const number = await nextDocumentNumber(tx, ctx.companyId, d.docType);
-        return tx.invoice.create({
+        const created = await tx.invoice.create({
           data: {
             companyId: ctx.companyId,
             docType: d.docType,
             number,
             customerId: customer.id,
-            issueDate: new Date(d.issueDate),
+            issueDate: asDate(d.issueDate)!,
             dueDate: meta.dateField === "dueDate" ? asDate(d.dueDate) : null,
             validUntil: meta.dateField === "validUntil" ? asDate(d.validUntil) : null,
             receivedDate: meta.dateField === "receivedDate" ? asDate(d.receivedDate) : null,
@@ -89,8 +89,9 @@ export async function createDocument(raw: unknown): Promise<InvoiceActionResult>
               : undefined,
           },
         });
+        await writeAudit(tx, ctx, "DOC_CREATE", "Invoice", created.id, `สร้าง${meta.short}ฉบับร่าง ${created.number} · สุทธิ ${formatBaht(totals.netSatang)} บาท`);
+        return created;
       });
-      await logAudit(ctx, "DOC_CREATE", "Invoice", created.id, `สร้าง${meta.short}ฉบับร่าง ${created.number} · สุทธิ ${formatBaht(totals.netSatang)} บาท`);
       revalidatePath("/documents");
       revalidatePath("/invoices");
       return { ok: true, id: created.id };
@@ -119,7 +120,7 @@ export async function issueInvoice(id: string): Promise<InvoiceActionResult> {
     docType: invoice.docType,
     company: invoice.company,
     customer: invoice.customer,
-    invoice: { number: invoice.number, issueDate: invoice.issueDate, payeeName: invoice.payeeName, reason: invoice.reason },
+    invoice: { number: invoice.number, issueDate: invoice.issueDate, payeeName: invoice.payeeName, reason: invoice.reason, refDocNumber: invoice.refDocNumber, sourceId: invoice.sourceId },
     items: invoice.items,
   });
   if (missing.length > 0) {
@@ -128,11 +129,16 @@ export async function issueInvoice(id: string): Promise<InvoiceActionResult> {
 
   // Stamp the legal issue moment at issue time, not the draft date. The status: "DRAFT"
   // guard keeps this a no-op if the document was already issued.
-  await db.invoice.updateMany({
-    where: { id, companyId: ctx.companyId, status: "DRAFT" },
-    data: { status: "SENT", issueDate: new Date() },
+  const issued = await db.$transaction(async (tx) => {
+    const result = await tx.invoice.updateMany({
+      where: { id, companyId: ctx.companyId, status: "DRAFT" },
+      data: { status: "SENT", issueDate: new Date() },
+    });
+    if (result.count === 0) return false;
+    await writeAudit(tx, ctx, "DOC_ISSUE", "Invoice", id, `${meta.issueVerb} ${invoice.number}`);
+    return true;
   });
-  await logAudit(ctx, "DOC_ISSUE", "Invoice", id, `${meta.issueVerb} ${invoice.number}`);
+  if (!issued) return { ok: false, error: "เอกสารถูกออกไปแล้วหรือสถานะเปลี่ยนแปลง กรุณาโหลดใหม่" };
   revalidatePath("/documents");
   revalidatePath("/invoices");
   revalidatePath(`/invoices/${id}`);
@@ -152,8 +158,13 @@ export async function setInvoiceStatus(id: string, status: InvoiceStatus): Promi
     return { ok: false, error: `เปลี่ยนสถานะจาก ${current.status} เป็น ${status} ไม่ได้` };
   }
 
-  await db.invoice.updateMany({ where: { id, companyId: ctx.companyId }, data: { status } });
-  await logAudit(ctx, "DOC_STATUS", "Invoice", id, `เปลี่ยนสถานะเป็น ${status}`);
+  const updated = await db.$transaction(async (tx) => {
+    const result = await tx.invoice.updateMany({ where: { id, companyId: ctx.companyId, status: current.status }, data: { status } });
+    if (result.count === 0) return false;
+    await writeAudit(tx, ctx, "DOC_STATUS", "Invoice", id, `เปลี่ยนสถานะเป็น ${status}`);
+    return true;
+  });
+  if (!updated) return { ok: false, error: "สถานะเอกสารถูกเปลี่ยนแปลง กรุณาโหลดใหม่" };
   revalidatePath("/documents");
   revalidatePath("/invoices");
   revalidatePath(`/invoices/${id}`);
@@ -173,7 +184,7 @@ export async function duplicateInvoice(id: string): Promise<InvoiceActionResult>
     try {
       const copy = await db.$transaction(async (tx) => {
         const number = await nextDocumentNumber(tx, ctx.companyId, src.docType);
-        return tx.invoice.create({
+        const created = await tx.invoice.create({
           data: {
             companyId: ctx.companyId,
             docType: src.docType,
@@ -198,8 +209,9 @@ export async function duplicateInvoice(id: string): Promise<InvoiceActionResult>
               : undefined,
           },
         });
+        await writeAudit(tx, ctx, "INVOICE_COPY", "Invoice", created.id, `ก๊อปจาก ${src.number} → ${created.number}`);
+        return created;
       });
-      await logAudit(ctx, "INVOICE_COPY", "Invoice", copy.id, `ก๊อปจาก ${src.number} → ${copy.number}`);
       revalidatePath("/documents");
       revalidatePath("/invoices");
       return { ok: true, id: copy.id };
@@ -216,8 +228,16 @@ export async function duplicateInvoice(id: string): Promise<InvoiceActionResult>
  * quotation → invoice/tax-invoice, invoice → receipt, tax-invoice → credit/debit note.
  * Clones items + discounts into a fresh DRAFT, links `sourceId`, and audits it.
  */
-export async function convertDocument(id: string, target: DocType): Promise<InvoiceActionResult> {
+export async function convertDocument(id: string, target: DocType, rawDetails?: unknown): Promise<InvoiceActionResult> {
   const ctx = await requireWriter();
+  const parsed = documentConversionSchema.safeParse({
+    target,
+    reason: typeof rawDetails === "object" && rawDetails !== null && "reason" in rawDetails
+      ? (rawDetails as { reason?: unknown }).reason
+      : undefined,
+  });
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+  const reason = parsed.data.reason?.trim() || null;
   const src = await db.invoice.findFirst({
     where: { id, companyId: ctx.companyId },
     include: { items: true },
@@ -227,17 +247,19 @@ export async function convertDocument(id: string, target: DocType): Promise<Invo
   if (!conversionTargets(src.docType).includes(target)) {
     return { ok: false, error: `แปลง ${docMeta(src.docType).short} เป็น ${docMeta(target).short} ไม่ได้` };
   }
-  // Must be issued first (a DRAFT isn't a real document yet).
-  if (src.status === "DRAFT") {
-    return { ok: false, error: `ต้อง${docMeta(src.docType).issueVerb}ก่อนจึงจะแปลงเอกสารได้` };
+  if (!canConvertStatus(src.status)) {
+    return { ok: false, error: `ไม่สามารถแปลงเอกสารสถานะ ${src.status} ได้` };
   }
 
   const targetMeta = docMeta(target);
+  const setting = await db.taxSetting.findFirst({ where: { companyId: ctx.companyId, jobType: src.jobType } });
+  if (!setting) return { ok: false, error: "ไม่พบการตั้งค่าภาษีของประเภทงานต้นทาง" };
+  const tax = calcTax({ subtotalSatang: src.subtotalSatang, ...effectiveTaxSetting(target, setting) });
   for (let attempt = 0; attempt < 5; attempt++) {
     try {
       const out = await db.$transaction(async (tx) => {
         const number = await nextDocumentNumber(tx, ctx.companyId, target);
-        return tx.invoice.create({
+        const created = await tx.invoice.create({
           data: {
             companyId: ctx.companyId,
             docType: target,
@@ -246,23 +268,24 @@ export async function convertDocument(id: string, target: DocType): Promise<Invo
             issueDate: new Date(),
             receivedDate: targetMeta.dateField === "receivedDate" ? new Date() : null,
             refDocNumber: target === "CREDIT_NOTE" || target === "DEBIT_NOTE" ? src.number : null,
+            reason,
             sourceId: src.id,
             status: "DRAFT",
             jobType: src.jobType,
             subtotalSatang: src.subtotalSatang,
             docDiscountSatang: src.docDiscountSatang,
-            vatSatang: src.vatSatang,
-            // WHT only carries over to types that show it.
-            whtSatang: targetMeta.showWht ? src.whtSatang : 0,
-            netSatang: targetMeta.showWht ? src.netSatang : src.subtotalSatang + src.vatSatang,
+            vatSatang: tax.vatSatang,
+            whtSatang: tax.whtSatang,
+            netSatang: tax.netSatang,
             trackingNo: src.trackingNo,
             note: src.note,
             createdById: ctx.userId,
             items: { create: src.items.map((it) => ({ description: it.description, pricingMode: it.pricingMode, qty: it.qty, unitPriceSatang: it.unitPriceSatang, discountSatang: it.discountSatang, lineTotalSatang: it.lineTotalSatang })) },
           },
         });
+        await writeAudit(tx, ctx, "DOC_CONVERT", "Invoice", created.id, `แปลง ${src.number} → ${targetMeta.short} ${created.number}`);
+        return created;
       });
-      await logAudit(ctx, "DOC_CONVERT", "Invoice", out.id, `แปลง ${src.number} → ${targetMeta.short} ${out.number}`);
       revalidatePath("/documents");
       revalidatePath("/invoices");
       revalidatePath(`/invoices/${id}`);
@@ -286,8 +309,13 @@ export async function deleteInvoice(id: string): Promise<InvoiceActionResult> {
   if (target.status !== "DRAFT") {
     return { ok: false, error: "ลบได้เฉพาะฉบับร่าง (DRAFT) เท่านั้น เอกสารที่ออกแล้วต้องยกเลิก ไม่ใช่ลบ" };
   }
-  await db.invoice.deleteMany({ where: { id, companyId: ctx.companyId, status: "DRAFT" } });
-  await logAudit(ctx, "INVOICE_DELETE", "Invoice", id, `ลบเอกสาร ${target.number}`);
+  const deleted = await db.$transaction(async (tx) => {
+    const result = await tx.invoice.deleteMany({ where: { id, companyId: ctx.companyId, status: "DRAFT" } });
+    if (result.count === 0) return false;
+    await writeAudit(tx, ctx, "INVOICE_DELETE", "Invoice", id, `ลบเอกสาร ${target.number}`);
+    return true;
+  });
+  if (!deleted) return { ok: false, error: "เอกสารถูกเปลี่ยนแปลง กรุณาโหลดใหม่" };
   revalidatePath("/documents");
   revalidatePath("/invoices");
   return { ok: true, id };

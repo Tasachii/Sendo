@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createLoginThrottle, type RateLimitConfig } from "../lib/rate-limit";
+import { createLoginThrottle, createFixedWindowThrottle, type RateLimitConfig } from "../lib/rate-limit";
 
 // small, fast config so the test reads clearly: lock after 3 fails for 1000ms,
 // window 5000ms, cap 8000ms.
@@ -7,6 +7,32 @@ const CFG: RateLimitConfig = { maxAttempts: 3, lockoutMs: 1000, windowMs: 5000, 
 
 const EMAIL = "user@test.co";
 const IP = "203.0.113.7";
+
+describe("fixed-window registration throttle", () => {
+  it("limits attempts and resets at the next window", () => {
+    const throttle = createFixedWindowThrottle(2, 1000);
+    expect(throttle.checkAndRecord("a|ip", 0).allowed).toBe(true);
+    expect(throttle.checkAndRecord("a|ip", 1).allowed).toBe(true);
+    expect(throttle.checkAndRecord("a|ip", 2).allowed).toBe(false);
+    expect(throttle.checkAndRecord("a|ip", 1000).allowed).toBe(true);
+  });
+
+  it("an IP-wide budget cannot be bypassed by changing identity keys", () => {
+    const ipBudget = createFixedWindowThrottle(2, 1000);
+    const identityBudget = createFixedWindowThrottle(10, 1000);
+    expect(ipBudget.checkAndRecord("203.0.113.7", 0).allowed).toBe(true);
+    expect(identityBudget.checkAndRecord("one@test.co", 0).allowed).toBe(true);
+    expect(ipBudget.checkAndRecord("203.0.113.7", 1).allowed).toBe(true);
+    expect(identityBudget.checkAndRecord("two@test.co", 1).allowed).toBe(true);
+    expect(ipBudget.checkAndRecord("203.0.113.7", 2).allowed).toBe(false);
+  });
+
+  it("an identity budget cannot be bypassed by changing IP keys", () => {
+    const identityBudget = createFixedWindowThrottle(1, 1000);
+    expect(identityBudget.checkAndRecord("same@test.co", 0).allowed).toBe(true);
+    expect(identityBudget.checkAndRecord("same@test.co", 1).allowed).toBe(false);
+  });
+});
 
 describe("loginThrottle — counts + lockout", () => {
   it("allows attempts below the threshold and is not locked", () => {

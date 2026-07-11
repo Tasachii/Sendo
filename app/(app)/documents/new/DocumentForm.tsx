@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { DocType } from "@prisma/client";
 import { calcTax } from "@/lib/tax";
 import { bahtToSatang, formatBaht } from "@/lib/money";
-import { docMeta } from "@/lib/docTypes";
+import { docMeta, effectiveTaxSetting } from "@/lib/docTypes";
 import { createDocument } from "@/app/actions/invoices";
 
 type Customer = { id: string; name: string; isVatRegistered: boolean; taxId: string | null; hasAddress: boolean };
@@ -59,10 +59,10 @@ export function DocumentForm({ docType, customers, services, taxSettings }: { do
     }, 0);
     const docDisc = Math.min(bahtToSatang(parseFloat(docDiscountBaht) || 0), lineSum);
     const subtotalSatang = lineSum - docDisc;
-    const whtRate = meta.showWht ? setting?.whtRate ?? 0 : 0;
-    const t = calcTax({ subtotalSatang, vatRate: setting?.vatRate ?? 0, whtRate, vatApplicable: !!setting?.vatApplicable && meta.isTaxDoc });
+    const effective = effectiveTaxSetting(docType, setting ?? { vatRate: 0, whtRate: 0, vatApplicable: false });
+    const t = calcTax({ subtotalSatang, ...effective });
     return { lineSum, docDisc, ...t };
-  }, [rows, docDiscountBaht, setting, meta]);
+  }, [rows, docDiscountBaht, setting, docType]);
 
   function updateRow(i: number, patch: Partial<Row>) {
     setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
@@ -85,27 +85,32 @@ export function DocumentForm({ docType, customers, services, taxSettings }: { do
     setError("");
     if (!customerId) return setError("กรุณาเลือกลูกค้า/คู่ค้า");
     setBusy(true);
-    const res = await createDocument({
-      docType,
-      customerId,
-      jobType,
-      issueDate,
-      dueDate: meta.dateField === "dueDate" ? secondaryDate : "",
-      validUntil: meta.dateField === "validUntil" ? secondaryDate : "",
-      receivedDate: meta.dateField === "receivedDate" ? secondaryDate : "",
-      paymentMethod: meta.type === "RECEIPT" ? paymentMethod : "",
-      payeeName,
-      reason,
-      refDocNumber,
-      note,
-      docDiscountBaht: parseFloat(docDiscountBaht) || undefined,
-      items: rows.map((r) => ({ description: r.description, pricingMode: r.pricingMode, qty: parseFloat(r.qty) || 0, unitPriceBaht: parseFloat(r.unitPriceBaht) || 0, discountBaht: parseFloat(r.discountBaht) || undefined })),
-      shipments: showLogistics ? shipments.filter((s) => s.trackingNo.trim()).map((s) => ({ trackingNo: s.trackingNo, note: s.note })) : [],
-    });
-    setBusy(false);
-    if (!res.ok) return setError(res.error);
-    router.push(`/invoices/${res.id}`);
-    router.refresh();
+    try {
+      const res = await createDocument({
+        docType,
+        customerId,
+        jobType,
+        issueDate,
+        dueDate: meta.dateField === "dueDate" ? secondaryDate : "",
+        validUntil: meta.dateField === "validUntil" ? secondaryDate : "",
+        receivedDate: meta.dateField === "receivedDate" ? secondaryDate : "",
+        paymentMethod: meta.type === "RECEIPT" ? paymentMethod : "",
+        payeeName,
+        reason,
+        refDocNumber,
+        note,
+        docDiscountBaht: parseFloat(docDiscountBaht) || undefined,
+        items: rows.map((r) => ({ description: r.description, pricingMode: r.pricingMode, qty: parseFloat(r.qty) || 0, unitPriceBaht: parseFloat(r.unitPriceBaht) || 0, discountBaht: parseFloat(r.discountBaht) || undefined })),
+        shipments: showLogistics ? shipments.filter((s) => s.trackingNo.trim()).map((s) => ({ trackingNo: s.trackingNo, note: s.note })) : [],
+      });
+      if (!res.ok) return setError(res.error);
+      router.push(`/invoices/${res.id}`);
+      router.refresh();
+    } catch {
+      setError("บันทึกเอกสารไม่สำเร็จ กรุณาลองใหม่");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -167,14 +172,14 @@ export function DocumentForm({ docType, customers, services, taxSettings }: { do
         )}
         {(meta.type === "CREDIT_NOTE" || meta.type === "DEBIT_NOTE") && (
           <div>
-            <label className={label}>อ้างอิงใบกำกับภาษีเลขที่</label>
-            <input value={refDocNumber} onChange={(e) => setRefDocNumber(e.target.value)} className={field} placeholder="เช่น INV-2026-0001" />
+            <label className={label}>อ้างอิงใบกำกับภาษีเลขที่ *</label>
+            <input required value={refDocNumber} onChange={(e) => setRefDocNumber(e.target.value)} className={field} placeholder="เช่น INV-2026-0001" />
           </div>
         )}
         {(meta.type === "CREDIT_NOTE" || meta.type === "DEBIT_NOTE" || meta.type === "RECEIPT_SUBSTITUTE") && (
           <div className="sm:col-span-2">
             <label className={label}>เหตุผล/รายละเอียด *</label>
-            <input value={reason} onChange={(e) => setReason(e.target.value)} className={field} placeholder="เช่น ลดราคาสินค้าชำรุด / จ่ายค่าบริการ" />
+            <input required value={reason} onChange={(e) => setReason(e.target.value)} className={field} placeholder="เช่น ลดราคาสินค้าชำรุด / จ่ายค่าบริการ" />
           </div>
         )}
         <div className="sm:col-span-2">

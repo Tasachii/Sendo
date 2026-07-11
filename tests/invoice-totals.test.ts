@@ -1,9 +1,21 @@
 import { describe, it, expect } from "vitest";
 import { computeTotals } from "../lib/invoice";
 import { calcTax } from "../lib/tax";
+import { ALL_DOC_TYPES, effectiveTaxSetting } from "../lib/docTypes";
 
 // transport_service: VAT 7%, WHT 3% (applied only above the 1,000-baht / 100,000-satang threshold)
 const SETTING = { vatRate: 0.07, whtRate: 0.03, vatApplicable: true };
+
+describe("effectiveTaxSetting — document tax matrix", () => {
+  it.each(ALL_DOC_TYPES)("uses the explicit policy for $type", (meta) => {
+    const effective = effectiveTaxSetting(meta.type, SETTING);
+    expect(effective.vatApplicable).toBe(meta.isTaxDoc);
+    expect(effective.whtRate).toBe(meta.showWht ? SETTING.whtRate : 0);
+    const tax = calcTax({ subtotalSatang: 100_000, ...effective });
+    expect(tax.vatSatang).toBe(meta.isTaxDoc ? 7_000 : 0);
+    expect(tax.whtSatang).toBe(meta.showWht ? 3_000 : 0);
+  });
+});
 
 describe("computeTotals — multi-line subtotal rounding", () => {
   it("subtotal is the SUM of per-line rounded amounts (each line = round(unitPriceSatang × qty))", () => {

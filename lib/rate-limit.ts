@@ -95,3 +95,28 @@ export function createLoginThrottle(config: RateLimitConfig = DEFAULT_CONFIG) {
 
 // Process-wide singleton used by lib/auth.ts.
 export const loginThrottle = createLoginThrottle();
+
+export function createFixedWindowThrottle(maxAttempts: number, windowMs: number) {
+  const store = new Map<string, { count: number; resetAt: number }>();
+
+  function checkAndRecord(key: string, now: number = Date.now()): CheckResult {
+    const normalized = key.toLowerCase().trim();
+    const current = store.get(normalized);
+    const record = !current || current.resetAt <= now
+      ? { count: 0, resetAt: now + windowMs }
+      : current;
+    if (record.count >= maxAttempts) {
+      return { allowed: false, retryAfterMs: record.resetAt - now };
+    }
+    record.count += 1;
+    store.set(normalized, record);
+    return { allowed: true };
+  }
+
+  return { checkAndRecord };
+}
+
+// Per-instance guard for the current SQLite/single-instance deployment. Production
+// multi-instance deployments must replace this with the same key in a shared store.
+export const registrationIdentityThrottle = createFixedWindowThrottle(3, 15 * 60_000);
+export const registrationIpThrottle = createFixedWindowThrottle(5, 15 * 60_000);

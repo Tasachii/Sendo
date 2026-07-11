@@ -86,15 +86,29 @@ export const docTypeSchema = z.enum([
 export type DocTypeInput = z.infer<typeof docTypeSchema>;
 
 const optStr = z.string().optional().or(z.literal(""));
+const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+export function isISOCalendarDate(value: string): boolean {
+  const match = ISO_DATE.exec(value);
+  if (!match) return false;
+  const [, year, month, day] = match;
+  const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+  return date.getUTCFullYear() === Number(year)
+    && date.getUTCMonth() === Number(month) - 1
+    && date.getUTCDate() === Number(day);
+}
+
+const requiredDate = z.string().refine(isISOCalendarDate, "วันที่ไม่ถูกต้อง (ต้องเป็น YYYY-MM-DD)");
+const optionalDate = optStr.refine((value) => !value || isISOCalendarDate(value), "วันที่ไม่ถูกต้อง (ต้องเป็น YYYY-MM-DD)");
 
 export const documentDraftSchema = z.object({
   docType: docTypeSchema.default("TAX_INVOICE"),
   customerId: z.string().min(1, "กรุณาเลือกลูกค้า"),
   jobType: z.string().min(1, "กรุณาเลือกประเภทงาน"),
-  issueDate: z.string().min(1, "กรุณาระบุวันที่"),
-  dueDate: optStr,
-  validUntil: optStr, // QUOTATION
-  receivedDate: optStr, // RECEIPT / RECEIPT_SUBSTITUTE
+  issueDate: requiredDate,
+  dueDate: optionalDate,
+  validUntil: optionalDate, // QUOTATION
+  receivedDate: optionalDate, // RECEIPT / RECEIPT_SUBSTITUTE
   paymentMethod: optStr, // RECEIPT
   payeeName: optStr, // RECEIPT_SUBSTITUTE
   reason: optStr, // CREDIT/DEBIT note + RECEIPT_SUBSTITUTE
@@ -105,9 +119,33 @@ export const documentDraftSchema = z.object({
   docDiscountPct: z.coerce.number().min(0).max(100).optional(),
   items: z.array(invoiceItemSchema).min(1, "ต้องมีอย่างน้อย 1 รายการ"),
   shipments: z.array(shipmentSchema).default([]),
+}).superRefine((data, ctx) => {
+  const requireText = (value: string | undefined, path: string, message: string) => {
+    if (!value?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, path: [path], message });
+  };
+  if (data.docType === "CREDIT_NOTE" || data.docType === "DEBIT_NOTE") {
+    requireText(data.reason, "reason", "กรุณาระบุเหตุผลของใบลดหนี้/ใบเพิ่มหนี้");
+    requireText(data.refDocNumber, "refDocNumber", "กรุณาระบุเอกสารต้นทางที่อ้างอิง");
+  }
+  if (data.docType === "RECEIPT_SUBSTITUTE") requireText(data.reason, "reason", "กรุณาระบุเหตุผล/รายละเอียดการจ่าย");
+
+  for (const [field, value] of [["dueDate", data.dueDate], ["validUntil", data.validUntil], ["receivedDate", data.receivedDate]] as const) {
+    if (value && value < data.issueDate) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [field], message: "วันที่ต้องไม่อยู่ก่อนวันที่ออกเอกสาร" });
+    }
+  }
 });
 export type DocumentDraftInput = z.infer<typeof documentDraftSchema>;
 
 // Back-compat alias — older call sites referenced invoiceDraftSchema.
 export const invoiceDraftSchema = documentDraftSchema;
 export type InvoiceDraftInput = DocumentDraftInput;
+
+export const documentConversionSchema = z.object({
+  target: docTypeSchema,
+  reason: optStr,
+}).superRefine((data, ctx) => {
+  if ((data.target === "CREDIT_NOTE" || data.target === "DEBIT_NOTE") && !data.reason?.trim()) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["reason"], message: "กรุณาระบุเหตุผลของใบลดหนี้/ใบเพิ่มหนี้" });
+  }
+});

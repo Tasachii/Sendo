@@ -33,4 +33,10 @@ describe("poka-yoke validateForIssue (มาตรา 86/4)", () => {
     expect(errs.some((e) => e.includes("รายการ"))).toBe(true);
     expect(errs.some((e) => e.includes("วันที่"))).toBe(true);
   });
+
+  it.each(["CREDIT_NOTE", "DEBIT_NOTE"] as const)("blocks %s without reason and source reference", (docType) => {
+    const errs = validateForIssue({ ...valid, docType, invoice: { ...valid.invoice, reason: "", refDocNumber: "", sourceId: null } });
+    expect(errs.some((e) => e.includes("เหตุผล"))).toBe(true);
+    expect(errs.some((e) => e.includes("ต้นทาง"))).toBe(true);
+  });
 });
