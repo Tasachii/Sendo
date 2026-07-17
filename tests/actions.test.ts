@@ -65,11 +65,11 @@ beforeEach(() => asUser({ role: "OWNER", companyId, userId: ownerId }));
 // ───────────────────────── customers ─────────────────────────
 describe("customers actions", () => {
   it("createCustomer: writer can create; tenant scope is forced", async () => {
-    const res = await createCustomer(fd({ name: "ลูกค้าใหม่", taxId: "0105550000099", address: "กทม." }));
+    const res = await createCustomer(fd({ name: "ลูกค้าใหม่", taxId: "0105550000091", address: "กทม." }));
     expect(res).toEqual({ ok: true });
     const row = await db.customer.findFirst({ where: { companyId, name: "ลูกค้าใหม่" } });
     expect(row?.companyId).toBe(companyId);
-    expect(row?.taxId).toBe("0105550000099");
+    expect(row?.taxId).toBe("0105550000091");
   });
 
   it("createCustomer: rejects a malformed taxId (validation, A6)", async () => {

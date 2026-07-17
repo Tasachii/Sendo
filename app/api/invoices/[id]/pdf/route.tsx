@@ -8,10 +8,14 @@ import { legalDate } from "@/lib/legalDate";
 
 const legalDateOrNull = (d: Date | null | undefined) => (d ? legalDate(d) : null);
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const ctx = await getSessionContext();
   if (!ctx) return new Response("Unauthorized", { status: 401 });
+
+  // ?copy=1 (or copy=true) prints the สำเนา edition; default is the ต้นฉบับ.
+  const copyParam = new URL(req.url).searchParams.get("copy");
+  const copy = copyParam === "1" || copyParam === "true";
 
   const inv = await db.invoice.findFirst({
     where: { id, companyId: ctx.companyId },
@@ -32,6 +36,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     <InvoicePDF
       data={{
         docType: inv.docType,
+        copy,
         number: inv.number,
         issueDate: legalDate(inv.issueDate),
         secondaryDate: secondaryValue ? { label: meta.dateLabel, value: secondaryValue } : null,

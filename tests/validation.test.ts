@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { registerSchema, customerSchema, invoiceItemSchema, documentDraftSchema, documentConversionSchema, isISOCalendarDate } from "../lib/validation";
+import { registerSchema, customerSchema, invoiceItemSchema, documentDraftSchema, documentConversionSchema, isISOCalendarDate, isValidThaiTaxId } from "../lib/validation";
 
 const baseRegister = {
   companyName: "บ. ขนส่ง",
@@ -114,5 +114,61 @@ describe("documentConversionSchema", () => {
 
   it("does not require a reason for ordinary conversion targets", () => {
     expect(documentConversionSchema.safeParse({ target: "RECEIPT" }).success).toBe(true);
+  });
+});
+
+// ── Thai tax-ID check digit (มอด 11) ──────────────────────────────────────────
+// Every Thai 13-digit เลขประจำตัวผู้เสียภาษี (personal or นิติบุคคล) carries a mod-11
+// check digit as its 13th digit. A pure length/regex check (the old A6 rule) lets a
+// single-digit typo through; the checksum catches it on input (poka-yoke).
+describe("isValidThaiTaxId — mod-11 check digit", () => {
+  it.each([
+    "0105558083491", // real นิติบุคคล TIN (check digit 1)
+    "1101700230708", // personal ID form, valid check digit 8
+    "0105551234567", // used elsewhere in the fixtures — genuinely valid
+  ])("accepts a checksum-valid id: %s", (id) => {
+    expect(isValidThaiTaxId(id)).toBe(true);
+  });
+
+  it.each([
+    "0105558083490", // last digit off by one → wrong checksum
+    "1101700230705", // wrong check digit (valid is …708)
+    "0105550000010", // wrong check digit (valid is …015)
+  ])("rejects a 13-digit id with a bad check digit: %s", (id) => {
+    expect(isValidThaiTaxId(id)).toBe(false);
+  });
+
+  it.each([
+    "",
+    "123",
+    "010555123456", // 12 digits
+    "01055512345678", // 14 digits
+    "123456789012a", // trailing non-digit
+    "abcdefghijklm",
+  ])("rejects a malformed id: %s", (id) => {
+    expect(isValidThaiTaxId(id)).toBe(false);
+  });
+});
+
+describe("schemas enforce the tax-ID checksum on input (SE4)", () => {
+  it("registerSchema rejects a 13-digit companyTaxId with a bad checksum", () => {
+    expect(registerSchema.safeParse({ ...baseRegister, companyTaxId: "0105558083490" }).success).toBe(false);
+  });
+
+  it("registerSchema accepts a checksum-valid companyTaxId", () => {
+    expect(registerSchema.safeParse({ ...baseRegister, companyTaxId: "0105558083491" }).success).toBe(true);
+  });
+
+  it("customerSchema rejects a present-but-bad-checksum taxId", () => {
+    expect(customerSchema.safeParse({ name: "ลูกค้า", taxId: "0105550000010" }).success).toBe(false);
+  });
+
+  it("customerSchema still allows an absent taxId (non-VAT buyer)", () => {
+    expect(customerSchema.safeParse({ name: "ลูกค้า" }).success).toBe(true);
+    expect(customerSchema.safeParse({ name: "ลูกค้า", taxId: "" }).success).toBe(true);
+  });
+
+  it("customerSchema accepts a checksum-valid taxId", () => {
+    expect(customerSchema.safeParse({ name: "ลูกค้า", taxId: "0105552222333" }).success).toBe(true);
   });
 });

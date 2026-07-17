@@ -5,9 +5,25 @@ import { z } from "zod";
 // Thai นิติบุคคล tax ID — exactly 13 digits, no other characters.
 const taxId13 = /^\d{13}$/;
 
+/**
+ * Validate a Thai 13-digit เลขประจำตัวผู้เสียภาษี including its mod-11 check digit.
+ * The 13th digit is a checksum over the first 12 (weight 13 down to 2), so a single
+ * mistyped digit is caught on input — the regex-only check (A6) could not. Same
+ * algorithm for personal IDs and นิติบุคคล TINs.
+ */
+export function isValidThaiTaxId(id: string): boolean {
+  if (!taxId13.test(id)) return false;
+  let sum = 0;
+  for (let i = 0; i < 12; i++) sum += Number(id[i]) * (13 - i);
+  const check = (11 - (sum % 11)) % 10;
+  return check === Number(id[12]);
+}
+
+const TAX_ID_MESSAGE = "เลขประจำตัวผู้เสียภาษีไม่ถูกต้อง (ต้องเป็นตัวเลข 13 หลักและผ่านการตรวจสอบหลักท้าย)";
+
 export const registerSchema = z.object({
   companyName: z.string().min(1, "กรุณากรอกชื่อบริษัท"),
-  companyTaxId: z.string().regex(taxId13, "เลขประจำตัวผู้เสียภาษีต้องเป็นตัวเลข 13 หลัก"),
+  companyTaxId: z.string().refine(isValidThaiTaxId, TAX_ID_MESSAGE),
   companyAddress: z.string().min(1, "กรุณากรอกที่อยู่บริษัท"),
   ownerName: z.string().min(1, "กรุณากรอกชื่อผู้ใช้"),
   email: z.string().email("อีเมลไม่ถูกต้อง"),
@@ -17,7 +33,7 @@ export type RegisterInput = z.infer<typeof registerSchema>;
 
 export const companyProfileSchema = z.object({
   name: z.string().min(1, "กรุณากรอกชื่อบริษัท"),
-  taxId: z.string().regex(taxId13, "เลขประจำตัวผู้เสียภาษีต้องเป็นตัวเลข 13 หลัก"),
+  taxId: z.string().refine(isValidThaiTaxId, TAX_ID_MESSAGE),
   address: z.string().min(1, "กรุณากรอกที่อยู่บริษัท"),
   branch: z.string().min(1, "กรุณาระบุสำนักงานใหญ่/สาขา").default("สำนักงานใหญ่"),
   isVatRegistered: z.boolean().default(true),
@@ -40,7 +56,7 @@ export const customerSchema = z.object({
     .string()
     .optional()
     .or(z.literal(""))
-    .refine((v) => !v || taxId13.test(v), "เลขประจำตัวผู้เสียภาษีต้องเป็นตัวเลข 13 หลัก"),
+    .refine((v) => !v || isValidThaiTaxId(v), TAX_ID_MESSAGE),
   address: z.string().optional().or(z.literal("")),
   branch: z.string().min(1, "กรุณาระบุสำนักงานใหญ่/สาขา").default("สำนักงานใหญ่"),
   contactPhone: z.string().optional().or(z.literal("")),

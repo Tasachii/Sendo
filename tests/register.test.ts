@@ -13,7 +13,7 @@ const raceEmail = `reg-race-${Date.now()}@t.test`;
 function form(forEmail = email): FormData {
   const f = new FormData();
   f.append("companyName", "REG-TEST ขนส่ง");
-  f.append("companyTaxId", "0105550000099");
+  f.append("companyTaxId", "0105550000091");
   f.append("companyAddress", "กทม.");
   f.append("ownerName", "เจ้าของ");
   f.append("email", forEmail);

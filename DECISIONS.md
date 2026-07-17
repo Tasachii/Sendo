@@ -163,3 +163,31 @@ Resolutions applied while executing `FIXLIST.md`. See `AUDIT_CHANGES.md` for the
 - Per-email + per-IP attempt counting / lockout in `authorize()` is **deferred**: it needs an infra
   decision (where to store attempt counts — DB table vs. Redis vs. in-memory) that is out of scope for
   this pass. Documented here so it isn't lost. Mitigates credential stuffing / brute force.
+
+## D-SE2 — rate freezing on issued documents (VERIFIED — already correct)
+- Confirmed the Jul 11 hardening already freezes rates by design: an issued `Invoice` row stores the
+  computed `subtotalSatang / vatSatang / whtSatang / netSatang`; no render path re-reads `TaxSetting`.
+  `InvoicePDF` prints VAT/WHT as frozen baht (no % re-derivation), the detail page shows frozen amounts,
+  and the WHT cert derives its rate from the stored amounts (D-A13). Editing a live rate after issue
+  cannot alter any already-issued document. No schema `vatRatePct/whtRatePct` column is needed — the
+  frozen satang amounts are the equivalent, and the recoverable rate is `whtSatang/subtotalSatang`.
+
+## D-SE4a — Thai tax-ID check digit enforced on input (RESOLVED)
+- `isValidThaiTaxId` (`lib/validation.ts`) adds the mod-11 check-digit test (weights 13→2) on top of the
+  A6 `/^\d{13}$/` format check, and now backs `registerSchema` / `companyProfileSchema` / `customerSchema`.
+  A single mistyped digit is rejected at input (poka-yoke). Fixture tax IDs that were not checksum-valid
+  were corrected in `tests/actions.test.ts`, `tests/company.test.ts`, `tests/register.test.ts`, `prisma/seed.ts`.
+
+## D-SE4b — amount in Thai words = tax-inclusive total (RESOLVED)
+- `lib/bahtText.ts` renders จำนวนเงินเป็นตัวอักษร from integer satang (exact สตางค์). `InvoicePDF` prints it
+  for `subtotalSatang + vatSatang` — the "รวมเป็นเงิน" (มูลค่าสินค้า + VAT) figure, the canonical grand total
+  on a Thai tax invoice. WHT is a separate settlement and does NOT reduce the words figure (verified: an
+  invoice with WHT shows the pre-WHT total in words, not the net paid).
+
+## D-SE4c — ต้นฉบับ/สำเนา marking (RESOLVED)
+- `InvoicePDF` was hardcoded to "(ต้นฉบับ / Original)". Added a `copy` flag; the PDF route reads `?copy=1`
+  (or `copy=true`) and prints "(สำเนา / Copy)" so a document set can issue both the original and copies.
+
+## NOTED — WHT cert (50 ทวิ) ฉบับที่ 1/2 + amount-in-words (NOT DONE, out of SE4 scope)
+- `WhtCertPDF` has no ฉบับที่ 1/ฉบับที่ 2 edition marking and no amount-in-words for the withheld total.
+  Left untouched: the SE4 items named the ใบกำกับภาษี. Documented so it isn't lost.

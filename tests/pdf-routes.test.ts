@@ -241,3 +241,19 @@ describe("GET /api/invoices/[id]/wht", () => {
     expect(renderedData().incomeLabel).toBe("ค่าขนส่ง/บริการ");
   });
 });
+
+describe("GET /api/invoices/[id]/pdf — ต้นฉบับ/สำเนา marking (SE4)", () => {
+  it("defaults to the ต้นฉบับ (original): no copy flag", async () => {
+    getSessionContext.mockResolvedValue({ companyId: "c1" });
+    dbInvoiceFindFirst.mockResolvedValue(baseInvoice());
+    await pdfGET(new Request("http://x/api/invoices/abc/pdf"), params("abc"));
+    expect(renderedData().copy).toBeFalsy();
+  });
+
+  it.each(["copy=1", "copy=true"])("marks a สำเนา (copy) when ?%s is passed", async (qs) => {
+    getSessionContext.mockResolvedValue({ companyId: "c1" });
+    dbInvoiceFindFirst.mockResolvedValue(baseInvoice());
+    await pdfGET(new Request(`http://x/api/invoices/abc/pdf?${qs}`), params("abc"));
+    expect(renderedData().copy).toBe(true);
+  });
+});

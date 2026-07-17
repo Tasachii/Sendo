@@ -1,10 +1,12 @@
 import { Document, Page, Text, View, Image, StyleSheet } from "@react-pdf/renderer";
 import type { DocType } from "@prisma/client";
 import { formatBaht } from "@/lib/money";
+import { bahtText } from "@/lib/bahtText";
 import { docMeta } from "@/lib/docTypes";
 
 export type InvoicePdfData = {
   docType?: DocType; // defaults to TAX_INVOICE for the legacy path
+  copy?: boolean; // true → print the สำเนา (copy) edition instead of the ต้นฉบับ (original)
   number: string;
   issueDate: string;
   secondaryDate?: { label: string; value: string } | null;
@@ -59,6 +61,9 @@ const s = StyleSheet.create({
   signImg: { width: 120, height: 40, objectFit: "contain", marginBottom: 2 },
   signline: { borderTopWidth: 1, borderTopColor: "#94a3b8", marginTop: 4, paddingTop: 3, fontSize: 9 },
   noteTxt: { fontSize: 9, color: "#475569", marginTop: 12 },
+  amountWords: { flexDirection: "row", justifyContent: "space-between", borderWidth: 1, borderColor: "#cbd5e1", borderRadius: 4, backgroundColor: "#f8fafc", paddingVertical: 5, paddingHorizontal: 8, marginTop: 10 },
+  amountWordsLabel: { fontSize: 9, color: "#64748b" },
+  amountWordsValue: { fontWeight: "bold", flex: 1, textAlign: "right", marginLeft: 8 },
 });
 
 export function InvoicePDF({ data }: { data: InvoicePdfData }) {
@@ -68,6 +73,9 @@ export function InvoicePDF({ data }: { data: InvoicePdfData }) {
   const lineSum = data.subtotalSatang + docDiscount;
   const hasLineDiscount = data.items.some((it) => (it.discountSatang ?? 0) > 0);
   const isSubstitute = meta.type === "RECEIPT_SUBSTITUTE";
+  // Amount-in-words states the tax-inclusive grand total (มูลค่าสินค้า + VAT) — the
+  // "รวมเป็นเงิน" figure. WHT is a separate settlement and does not reduce it.
+  const grandTotalSatang = data.subtotalSatang + data.vatSatang;
 
   return (
     <Document>
@@ -77,7 +85,7 @@ export function InvoicePDF({ data }: { data: InvoicePdfData }) {
           <View style={{ width: 96 }}>{brand.logoDataUrl ? <Image style={s.logo} src={brand.logoDataUrl} /> : null}</View>
           <View style={s.titleWrap}>
             <Text style={s.title}>{meta.title}</Text>
-            <Text style={s.sub}>(ต้นฉบับ / Original)</Text>
+            <Text style={s.sub}>{data.copy ? "(สำเนา / Copy)" : "(ต้นฉบับ / Original)"}</Text>
             {data.refDocNumber ? <Text style={s.sub}>อ้างอิงเอกสารเลขที่ {data.refDocNumber}</Text> : null}
           </View>
           <View style={{ width: 96 }} />
@@ -141,6 +149,12 @@ export function InvoicePDF({ data }: { data: InvoicePdfData }) {
           <View style={s.tline}><Text>รวมเป็นเงิน</Text><Text>{formatBaht(data.subtotalSatang + data.vatSatang)}</Text></View>
           {meta.showWht && data.whtSatang > 0 ? <View style={s.tline}><Text>หัก ณ ที่จ่าย</Text><Text>- {formatBaht(data.whtSatang)}</Text></View> : null}
           <View style={s.net}><Text style={s.bold}>{meta.type === "QUOTATION" ? "ยอดรวมทั้งสิ้น" : "ยอดชำระสุทธิ"}</Text><Text style={s.bold}>{formatBaht(data.netSatang)} บาท</Text></View>
+        </View>
+
+        {/* จำนวนเงินรวมทั้งสิ้น เป็นตัวอักษร — legally required on a Thai tax document */}
+        <View style={s.amountWords}>
+          <Text style={s.amountWordsLabel}>จำนวนเงินรวมทั้งสิ้น (ตัวอักษร)</Text>
+          <Text style={s.amountWordsValue}>({bahtText(grandTotalSatang)})</Text>
         </View>
 
         {data.note ? <Text style={s.noteTxt}>หมายเหตุ: {data.note}</Text> : null}

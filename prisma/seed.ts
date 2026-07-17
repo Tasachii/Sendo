@@ -92,7 +92,7 @@ async function main() {
   // --- Second company, to prove tenant isolation (build spec §9) ---
   await seedCompany({
     name: "บริษัท คู่แข่ง โลจิสติกส์ จำกัด",
-    taxId: "0105559999888",
+    taxId: "0105559999881",
     address: "1 ถนนเพชรบุรี แขวงถนนเพชรบุรี เขตราชเทวี กรุงเทพมหานคร 10400",
     ownerEmail: "other@sendo.test",
     ownerName: "เจ้าของอีกบริษัท",

@@ -78,7 +78,7 @@ describe("updateCompanyProfile", () => {
   });
 
   it("persists a valid profile", async () => {
-    const res = await updateCompanyProfile(fd({ name: "บ. ใหม่ จำกัด", taxId: "0105550000049", address: "เชียงราย", branch: "สาขา 1" }));
+    const res = await updateCompanyProfile(fd({ name: "บ. ใหม่ จำกัด", taxId: "0105550000040", address: "เชียงราย", branch: "สาขา 1" }));
     expect(res).toEqual({ ok: true });
     const after = await db.company.findUniqueOrThrow({ where: { id: companyId } });
     expect(after.name).toBe("บ. ใหม่ จำกัด");
