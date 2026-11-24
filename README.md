@@ -1,6 +1,6 @@
 # Sendo（センド）— Thai logistics invoicing
 
-[![Tests](https://img.shields.io/badge/tests-186_passed-4ade80?style=flat-square)](https://github.com/Tasachii/Sendo/actions)
+[![Tests](https://img.shields.io/badge/tests-266_passed-4ade80?style=flat-square)](https://github.com/Tasachii/Sendo/actions)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 [![CI](https://github.com/Tasachii/Sendo/actions/workflows/ci.yml/badge.svg)](https://github.com/Tasachii/Sendo/actions/workflows/ci.yml)
 
@@ -82,7 +82,7 @@ npm run dev              # start the app on http://localhost:3000
 npm run build            # type-check + bundle every route (same step CI runs)
 npm start                # serve the production build locally
 npm run lint             # ESLint across the project
-npm test                 # Vitest — 186 tests across 21 files
+npm test                 # Vitest — 266 tests across 25 files
 npm run test:coverage    # same suite + v8 coverage report (gates CI thresholds)
 npm run test:watch       # Vitest in watch mode
 npm run db:migrate       # prisma migrate dev — apply new migrations
@@ -183,7 +183,7 @@ WHT threshold: no withholding when subtotal < 1,000 baht (100,000 satang) per Th
 GitHub Actions runs on every push and pull request to `main`:
 
 1. `npm run lint` — ESLint across the project (zero errors).
-2. `npm run test:coverage` — full 186-test suite + v8 coverage thresholds (gates the PR).
+2. `npm run test:coverage` — full 266-test suite + v8 coverage thresholds (gates the PR).
 3. `npm run build` — type-check + bundle every route.
 
 Node 20 · Ubuntu latest · `npm ci` for reproducible installs.
