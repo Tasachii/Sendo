@@ -2,8 +2,8 @@
 
 Sendo is a server app (NextAuth + Prisma + server-rendered PDFs), so it needs a host that
 runs Node — not a static page host. The simplest free option is **Render** using the included
-`Dockerfile` and `render.yaml`. The container ships SQLite inside it and **reseeds demo data on
-every start**, so the public demo always looks clean (data is intentionally ephemeral).
+`Dockerfile` and `render.yaml`. The demo blueprint enables sample data on the first boot of an
+empty SQLite database. Later starts preserve all existing companies and documents.
 
 ## Render (recommended, free, ~1 click)
 
@@ -18,14 +18,15 @@ every start**, so the public demo always looks clean (data is intentionally ephe
    |---|---|
    | `demo@sendo.test` | `demo1234` |
 
-> Free instances sleep after inactivity; the first request after a sleep takes ~30s to wake,
-> and waking reseeds the demo data.
+> Free instances sleep after inactivity; the first request after a sleep takes ~30s to wake.
+> Waking the instance does not replace its existing database rows.
 
 ## Run the container locally
 
 ```bash
 docker build -t sendo .
-docker run -p 3000:3000 -e NEXTAUTH_SECRET=dev-secret sendo   # http://localhost:3000
+docker run -p 3000:3000 -e NEXTAUTH_SECRET=dev-secret sendo   # empty app on http://localhost:3000
+docker run -p 3000:3000 -e NEXTAUTH_SECRET=dev-secret -e SENDO_DEMO_SEED=true sendo  # seed an empty demo
 ```
 
 ## Notes for a persistent (non-demo) deployment
@@ -35,7 +36,10 @@ For real multi-user use, switch from ephemeral SQLite to PostgreSQL:
 1. In `prisma/schema.prisma` set `provider = "postgresql"` and `url = env("DATABASE_URL")`.
 2. Provision a database (e.g. Neon free tier) and set `DATABASE_URL`.
 3. Use a host with a persistent service (Render Web Service + managed Postgres, Railway, Fly.io).
-4. Drop the reseed step from `docker-entrypoint.sh` (run `prisma migrate deploy` only).
+4. Leave `SENDO_DEMO_SEED` unset so the container only applies migrations before starting.
+
+For SQLite deployments, use `npm run db:backup -- <dump-file>` while the app is running and keep
+the dump on another machine. See the README backup and restore section for the restore procedure.
 
 ### Registration abuse controls
 

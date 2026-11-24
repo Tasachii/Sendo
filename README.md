@@ -1,6 +1,6 @@
 # Sendo（センド）— Thai logistics invoicing
 
-[![Tests](https://img.shields.io/badge/tests-266_passed-4ade80?style=flat-square)](https://github.com/Tasachii/Sendo/actions)
+[![Tests](https://img.shields.io/badge/tests-270_passed-4ade80?style=flat-square)](https://github.com/Tasachii/Sendo/actions)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 [![CI](https://github.com/Tasachii/Sendo/actions/workflows/ci.yml/badge.svg)](https://github.com/Tasachii/Sendo/actions/workflows/ci.yml)
 
@@ -82,12 +82,14 @@ npm run dev              # start the app on http://localhost:3000
 npm run build            # type-check + bundle every route (same step CI runs)
 npm start                # serve the production build locally
 npm run lint             # ESLint across the project
-npm test                 # Vitest — 266 tests across 25 files
+npm test                 # Vitest — 270 tests across 27 files
 npm run test:coverage    # same suite + v8 coverage report (gates CI thresholds)
 npm run test:watch       # Vitest in watch mode
 npm run db:migrate       # prisma migrate dev — apply new migrations
 npm run db:push          # prisma db push — sync schema without a migration file
 npm run db:studio        # open Prisma Studio to inspect the database
+npm run db:backup -- backups/sendo.sqlite  # consistent online SQLite backup
+npm run db:restore -- backups/sendo.sqlite # restore into a fresh instance
 npm run seed             # load demo data (refuses if business data already exists)
 ```
 
@@ -99,6 +101,24 @@ Demo accounts created by `npm run seed`:
 | Second tenant (proves isolation) | `other@sendo.test` | `demo1234` |
 
 The Docker image does not seed by default. Set `SENDO_DEMO_SEED=true` only for a demo deployment that should load the sample companies on its first empty-database boot. The seed command refuses to touch a populated database. To deliberately replace every business row with demo data, run `SENDO_SEED_FORCE=true npm run seed` after making a backup.
+
+### Backup and restore
+
+Create a consistent copy while Sendo is running:
+
+```bash
+npm run db:backup -- backups/sendo-$(date +%F).sqlite
+```
+
+`db:backup` uses SQLite's online backup operation, so the dump represents one consistent point in time even if a request writes during the command. Copy the resulting file to another machine or off-site storage; a dump left beside the live database will be lost with the same disk.
+
+To restore, stop Sendo and run the command in a fresh instance where `prisma/dev.db` does not exist:
+
+```bash
+npm run db:restore -- /path/to/sendo-2026-11-24.sqlite
+```
+
+The restore validates SQLite integrity before installing the file and refuses to overwrite an existing database. It also stops if a stale `-wal`, `-shm`, or `-journal` sidecar exists, because combining one database with another database's sidecar can corrupt the restored data.
 
 ---
 
@@ -185,7 +205,7 @@ WHT threshold: no withholding when subtotal < 1,000 baht (100,000 satang) per Th
 GitHub Actions runs on every push and pull request to `main`:
 
 1. `npm run lint` — ESLint across the project (zero errors).
-2. `npm run test:coverage` — full 266-test suite + v8 coverage thresholds (gates the PR).
+2. `npm run test:coverage` — full 270-test suite + v8 coverage thresholds (gates the PR).
 3. `npm run build` — type-check + bundle every route.
 
 Node 20 · Ubuntu latest · `npm ci` for reproducible installs.
