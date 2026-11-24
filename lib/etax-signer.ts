@@ -14,10 +14,15 @@ import type { ETaxDeps, ETaxDocument, SigningCredential } from "@/lib/etax";
 export function createETaxSigner(): ETaxDeps {
   return {
     async embedInPdfA3(xml: string, doc: ETaxDocument): Promise<Uint8Array> {
-      const { PDFDocument, StandardFonts, AFRelationship } = await import("pdf-lib");
+      const { readFile } = await import("node:fs/promises");
+      const path = await import("node:path");
+      const { default: fontkit } = await import("@pdf-lib/fontkit");
+      const { PDFDocument, AFRelationship } = await import("pdf-lib");
       const pdf = await PDFDocument.create();
+      pdf.registerFontkit(fontkit);
       const page = pdf.addPage([595.28, 841.89]); // A4 points
-      const font = await pdf.embedFont(StandardFonts.Helvetica);
+      const fontBytes = await readFile(path.join(process.cwd(), "public/fonts/Sarabun-Regular.ttf"));
+      const font = await pdf.embedFont(fontBytes, { subset: true });
       const lines = [
         `e-Tax Invoice  ${doc.number}`,
         `Document type ${doc.documentType}  ·  Issued ${doc.issueDate}`,

@@ -1,6 +1,6 @@
 # Sendo（センド）— Thai logistics invoicing
 
-[![Tests](https://img.shields.io/badge/tests-279_passed-4ade80?style=flat-square)](https://github.com/Tasachii/Sendo/actions)
+[![Tests](https://img.shields.io/badge/tests-280_passed-4ade80?style=flat-square)](https://github.com/Tasachii/Sendo/actions)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 [![CI](https://github.com/Tasachii/Sendo/actions/workflows/ci.yml/badge.svg)](https://github.com/Tasachii/Sendo/actions/workflows/ci.yml)
 
@@ -82,7 +82,7 @@ npm run dev              # start the app on http://localhost:3000
 npm run build            # type-check + bundle every route (same step CI runs)
 npm start                # serve the production build locally
 npm run lint             # ESLint across the project
-npm test                 # Vitest — 279 tests across 29 files
+npm test                 # Vitest — 280 tests across 29 files
 npm run test:coverage    # same suite + v8 coverage report (gates CI thresholds)
 npm run test:watch       # Vitest in watch mode
 npm run db:migrate       # prisma migrate dev — apply new migrations
@@ -132,6 +132,8 @@ The restore validates SQLite integrity before installing the file and refuses to
 6. **Convert it.** From an issued quotation press **แปลงเป็นใบกำกับภาษี**; from an issued invoice press **แปลงเป็นใบเสร็จรับเงิน**. The new document copies the lines and links back to its source — the lineage shows on both.
 7. **Download.** Download the **PDF**, the **50 ทวิ** withholding certificate when WHT applies, or the **e-Tax** export (signed PDF/A-3 when a certificate is configured, otherwise the ขมธอ.3-2560 XML).
 8. **Verify tenant isolation.** Sign in as `other@sendo.test` and confirm none of the first company's data is visible.
+
+The e-Tax export is an implementation aid, not confirmation that the Revenue Department will accept a filing. Validate the XML and signed PDF against the current official requirements with the company's certificate before submission.
 
 Statuses: **ฉบับร่าง** · **ออกแล้ว/ส่งแล้ว** · **ชำระแล้ว** · **เกินกำหนด** · **ตอบรับแล้ว** · **ปฏิเสธ** · **หมดอายุ** · **ยกเลิก**
 
@@ -207,7 +209,7 @@ WHT threshold: no withholding when subtotal < 1,000 baht (100,000 satang) per Th
 GitHub Actions runs on every push and pull request to `main`:
 
 1. `npm run lint` — ESLint across the project (zero errors).
-2. `npm run test:coverage` — full 279-test suite + v8 coverage thresholds (gates the PR).
+2. `npm run test:coverage` — full 280-test suite + v8 coverage thresholds (gates the PR).
 3. `npm run build` — type-check + bundle every route.
 
 Node 20 · Ubuntu latest · `npm ci` for reproducible installs.

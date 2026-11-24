@@ -7,6 +7,8 @@ import {
   type ETaxDeps,
   type SigningCredential,
 } from "../lib/etax";
+import { createETaxSigner } from "../lib/etax-signer";
+import { PDFDocument } from "pdf-lib";
 
 // A fully valid type-388 tax invoice: one line of 2 × 1,000.00 = 2,000.00, VAT 7% = 140.00,
 // grand total 2,140.00 (all in satang).
@@ -177,5 +179,18 @@ describe("buildSignedETaxPdf", () => {
     const xmlArg = (deps.embedInPdfA3 as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
     expect(xmlArg).toContain("<ID>INV-2026-0001</ID>");
     expect(deps.sign).toHaveBeenCalledWith(builtPdf, credential);
+  });
+});
+
+describe("production e-Tax cover", () => {
+  it("generates a loadable PDF for a seller with a Thai company name", async () => {
+    const doc = validDoc({
+      seller: { ...validDoc().seller, name: "บริษัท ขนส่งไทย จำกัด" },
+    });
+    const pdfBytes = await createETaxSigner().embedInPdfA3(buildETaxXml(doc), doc);
+    const pdf = await PDFDocument.load(pdfBytes);
+
+    expect(new TextDecoder().decode(pdfBytes.slice(0, 4))).toBe("%PDF");
+    expect(pdf.getPageCount()).toBe(1);
   });
 });
