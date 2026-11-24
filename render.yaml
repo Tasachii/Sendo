@@ -10,4 +10,6 @@ services:
     envVars:
       - key: NEXTAUTH_SECRET
         generateValue: true
+      - key: SENDO_DEMO_SEED
+        value: "true"
       # NEXTAUTH_URL is derived from RENDER_EXTERNAL_URL at boot (see docker-entrypoint.sh)

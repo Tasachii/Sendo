@@ -1,5 +1,4 @@
-# Sendo — container for a self-contained live demo (SQLite inside the container).
-# Demo data is reseeded on every start, so the public demo always looks clean.
+# Sendo — container for a self-contained app (SQLite inside the container).
 FROM node:20-slim
 
 # Prisma needs OpenSSL

@@ -1,10 +1,13 @@
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { pathToFileURL } from "node:url";
 import { TAX_DEFAULTS } from "../lib/taxDefaults";
 
-const db = new PrismaClient();
+type SeedDatabase = PrismaClient | Prisma.TransactionClient;
 
-async function seedCompany(opts: {
+export class SeedRefusedError extends Error {}
+
+async function seedCompany(db: SeedDatabase, opts: {
   name: string;
   taxId: string;
   address: string;
@@ -36,8 +39,7 @@ async function seedCompany(opts: {
   return company;
 }
 
-async function main() {
-  // wipe (idempotent dev seed)
+async function deleteBusinessData(db: Prisma.TransactionClient) {
   await db.invoiceItem.deleteMany();
   await db.invoice.deleteMany();
   await db.service.deleteMany();
@@ -45,9 +47,11 @@ async function main() {
   await db.taxSetting.deleteMany();
   await db.user.deleteMany();
   await db.company.deleteMany();
+}
 
+async function insertDemoData(db: SeedDatabase) {
   // --- Demo company (the one you log into) ---
-  const demo = await seedCompany({
+  const demo = await seedCompany(db, {
     name: "บริษัท เซ็นโด ขนส่ง จำกัด",
     taxId: "0105551234567",
     address: "99/1 ถนนสุขุมวิท แขวงคลองเตย เขตคลองเตย กรุงเทพมหานคร 10110",
@@ -90,7 +94,7 @@ async function main() {
   });
 
   // --- Second company, to prove tenant isolation (build spec §9) ---
-  await seedCompany({
+  await seedCompany(db, {
     name: "บริษัท คู่แข่ง โลจิสติกส์ จำกัด",
     taxId: "0105559999881",
     address: "1 ถนนเพชรบุรี แขวงถนนเพชรบุรี เขตราชเทวี กรุงเทพมหานคร 10400",
@@ -104,9 +108,32 @@ async function main() {
   console.log("  Other login: other@sendo.test / demo1234 (different tenant)");
 }
 
-main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(() => db.$disconnect());
+export async function seedDemoData(db: PrismaClient, force = false) {
+  return db.$transaction(async (tx) => {
+    const existingCompanies = await tx.company.count();
+    if (existingCompanies > 0 && !force) {
+      throw new SeedRefusedError(
+        "Refusing to seed a populated database. Set SENDO_SEED_FORCE=true only when you intend to replace all business data.",
+      );
+    }
+    if (force) await deleteBusinessData(tx);
+    await insertDemoData(tx);
+  });
+}
+
+async function main() {
+  const databaseUrl = process.env.SENDO_DATABASE_URL;
+  const db = new PrismaClient(databaseUrl ? { datasourceUrl: databaseUrl } : undefined);
+  try {
+    await seedDemoData(db, process.env.SENDO_SEED_FORCE === "true");
+  } finally {
+    await db.$disconnect();
+  }
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exit(error instanceof SeedRefusedError ? 2 : 1);
+  });
+}

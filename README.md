@@ -60,7 +60,7 @@ cd Sendo
 cp .env.example .env          # then set NEXTAUTH_SECRET (openssl rand -base64 32)
 npm install                   # installs deps, runs prisma generate via postinstall
 npx prisma migrate dev        # create the local SQLite database
-npm run seed                  # load demo data (two companies)
+npm run seed                  # load demo data into an empty database
 ```
 
 **Windows**
@@ -70,7 +70,7 @@ cd Sendo
 copy .env.example .env         :: then set NEXTAUTH_SECRET
 npm install                    :: installs deps, runs prisma generate via postinstall
 npx prisma migrate dev         :: create the local SQLite database
-npm run seed                   :: load demo data (two companies)
+npm run seed                   :: load demo data into an empty database
 ```
 
 ---
@@ -88,7 +88,7 @@ npm run test:watch       # Vitest in watch mode
 npm run db:migrate       # prisma migrate dev — apply new migrations
 npm run db:push          # prisma db push — sync schema without a migration file
 npm run db:studio        # open Prisma Studio to inspect the database
-npm run seed             # reset demo data (two companies)
+npm run seed             # load demo data (refuses if business data already exists)
 ```
 
 Demo accounts created by `npm run seed`:
@@ -97,6 +97,8 @@ Demo accounts created by `npm run seed`:
 | --- | --- | --- |
 | Demo company (OWNER) | `demo@sendo.test` | `demo1234` |
 | Second tenant (proves isolation) | `other@sendo.test` | `demo1234` |
+
+The Docker image does not seed by default. Set `SENDO_DEMO_SEED=true` only for a demo deployment that should load the sample companies on its first empty-database boot. The seed command refuses to touch a populated database. To deliberately replace every business row with demo data, run `SENDO_SEED_FORCE=true npm run seed` after making a backup.
 
 ---
 
