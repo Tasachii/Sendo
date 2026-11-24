@@ -18,6 +18,9 @@ const db = new PrismaClient();
 let companyId = "";
 let otherCompanyId = "";
 let ownerId = "";
+let otherOwnerId = "";
+let staffId = "";
+let viewerId = "";
 
 type Sess = { role: Role; companyId: string; userId: string };
 let current: Sess | null = null;
@@ -46,6 +49,15 @@ beforeAll(async () => {
   otherCompanyId = other.id;
   ownerId = (await db.user.create({
     data: { companyId, email: `act2-owner-${Date.now()}@t.test`, passwordHash: "x", name: "owner", role: "OWNER" },
+  })).id;
+  otherOwnerId = (await db.user.create({
+    data: { companyId: otherCompanyId, email: `act2-other-${Date.now()}@t.test`, passwordHash: "x", name: "other owner", role: "OWNER" },
+  })).id;
+  staffId = (await db.user.create({
+    data: { companyId, email: `act2-staff-${Date.now()}@t.test`, passwordHash: "x", name: "staff", role: "STAFF" },
+  })).id;
+  viewerId = (await db.user.create({
+    data: { companyId, email: `act2-viewer-${Date.now()}@t.test`, passwordHash: "x", name: "viewer", role: "VIEWER" },
   })).id;
 });
 
@@ -78,13 +90,13 @@ describe("customers actions", () => {
   });
 
   it("createCustomer: VIEWER is rejected by requireWriter", async () => {
-    asUser({ role: "VIEWER", companyId, userId: ownerId });
+    asUser({ role: "VIEWER", companyId, userId: viewerId });
     await expect(createCustomer(fd({ name: "x" }))).rejects.toThrow("FORBIDDEN_VIEWER_READONLY");
   });
 
   it("updateCustomer: cross-tenant id is not found (count 0)", async () => {
     const mine = await db.customer.create({ data: { companyId, name: "ของฉัน" } });
-    asUser({ role: "OWNER", companyId: otherCompanyId, userId: ownerId });
+    asUser({ role: "OWNER", companyId: otherCompanyId, userId: otherOwnerId });
     const res = await updateCustomer(mine.id, fd({ name: "แก้ไข" }));
     expect(res).toEqual({ ok: false, error: "ไม่พบลูกค้า" });
     // untouched
@@ -133,13 +145,13 @@ describe("services actions", () => {
   });
 
   it("createService: VIEWER rejected", async () => {
-    asUser({ role: "VIEWER", companyId, userId: ownerId });
+    asUser({ role: "VIEWER", companyId, userId: viewerId });
     await expect(createService(fd({ name: "x", defaultJobType: "t" }))).rejects.toThrow("FORBIDDEN_VIEWER_READONLY");
   });
 
   it("updateService: cross-tenant id not found", async () => {
     const svc = await db.service.create({ data: { companyId, name: "S", defaultJobType: "transport_service", defaultUnitPriceSatang: 100 } });
-    asUser({ role: "OWNER", companyId: otherCompanyId, userId: ownerId });
+    asUser({ role: "OWNER", companyId: otherCompanyId, userId: otherOwnerId });
     expect(await updateService(svc.id, fd({ name: "Z", defaultJobType: "transport_service", defaultUnitPriceBaht: "1" }))).toEqual({ ok: false, error: "ไม่พบรายการ" });
   });
 
@@ -159,7 +171,7 @@ describe("services actions", () => {
 // ───────────────────────── team ─────────────────────────
 describe("team actions (OWNER-gated)", () => {
   it("addTeamMember: STAFF is rejected by requireOwner", async () => {
-    asUser({ role: "STAFF", companyId, userId: ownerId });
+    asUser({ role: "STAFF", companyId, userId: staffId });
     await expect(addTeamMember(fd({ name: "n", email: "n@t.co", password: "password1", role: "STAFF" }))).rejects.toThrow("FORBIDDEN_OWNER_ONLY");
   });
 
@@ -182,7 +194,7 @@ describe("team actions (OWNER-gated)", () => {
 
   it("changeMemberRole: cross-tenant user id not found", async () => {
     const u = await db.user.create({ data: { companyId, email: `role-${Date.now()}@t.test`, passwordHash: "x", name: "u", role: "STAFF" } });
-    asUser({ role: "OWNER", companyId: otherCompanyId, userId: ownerId });
+    asUser({ role: "OWNER", companyId: otherCompanyId, userId: otherOwnerId });
     expect(await changeMemberRole(u.id, "VIEWER")).toEqual({ ok: false, error: "ไม่พบผู้ใช้" });
   });
 
@@ -225,12 +237,12 @@ describe("taxSettings action", () => {
   });
 
   it("updateTaxSetting: VIEWER rejected", async () => {
-    asUser({ role: "VIEWER", companyId, userId: ownerId });
+    asUser({ role: "VIEWER", companyId, userId: viewerId });
     await expect(updateTaxSetting("transport_service", { vatRate: 7, whtRate: 3, vatApplicable: true })).rejects.toThrow("FORBIDDEN_VIEWER_READONLY");
   });
 
   it("updateTaxSetting: cross-tenant jobType not found (count 0)", async () => {
-    asUser({ role: "OWNER", companyId: otherCompanyId, userId: ownerId });
+    asUser({ role: "OWNER", companyId: otherCompanyId, userId: otherOwnerId });
     expect(await updateTaxSetting("transport_service", { vatRate: 7, whtRate: 3, vatApplicable: true })).toEqual({ ok: false, error: "ไม่พบการตั้งค่า" });
   });
 });

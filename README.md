@@ -1,6 +1,6 @@
 # Sendo（センド）— Thai logistics invoicing
 
-[![Tests](https://img.shields.io/badge/tests-277_passed-4ade80?style=flat-square)](https://github.com/Tasachii/Sendo/actions)
+[![Tests](https://img.shields.io/badge/tests-279_passed-4ade80?style=flat-square)](https://github.com/Tasachii/Sendo/actions)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 [![CI](https://github.com/Tasachii/Sendo/actions/workflows/ci.yml/badge.svg)](https://github.com/Tasachii/Sendo/actions/workflows/ci.yml)
 
@@ -82,7 +82,7 @@ npm run dev              # start the app on http://localhost:3000
 npm run build            # type-check + bundle every route (same step CI runs)
 npm start                # serve the production build locally
 npm run lint             # ESLint across the project
-npm test                 # Vitest — 277 tests across 28 files
+npm test                 # Vitest — 279 tests across 29 files
 npm run test:coverage    # same suite + v8 coverage report (gates CI thresholds)
 npm run test:watch       # Vitest in watch mode
 npm run db:migrate       # prisma migrate dev — apply new migrations
@@ -143,7 +143,7 @@ Statuses: **ฉบับร่าง** · **ออกแล้ว/ส่งแ�
 Browser ──▶ Next.js 16 (App Router) ──▶ Prisma ──▶ SQLite (prisma/dev.db)
                 │  server actions recompute every total (incl. discounts) via lib/tax.ts
                 │  one Invoice table, discriminated by docType (lib/docTypes.ts)
-                ├─ NextAuth (JWT: companyId + role) · proxy.ts gates routes
+                ├─ NextAuth (JWT identifies user; protected requests reload membership from SQLite)
                 └─ /api/invoices/[id]/pdf · /wht · /etax ──▶ @react-pdf/renderer (Sarabun)
                                                          └─ pdf-lib + @signpdf (e-Tax PDF/A-3 + PAdES)
 ```
@@ -153,6 +153,7 @@ Browser ──▶ Next.js 16 (App Router) ──▶ Prisma ──▶ SQLite (pri
 | Money is server-truth | Every save recomputes subtotal, VAT, WHT, and net via `lib/tax.ts` from the company's `TaxSetting` — a tampered client request cannot change what is billed. |
 | Integer satang | All amounts stored as integer satang (baht × 100). Rounding is half-away-from-zero applied to VAT and WHT only; net is exact integer arithmetic. No floating-point drift. |
 | Tenant isolation is structural | Every update and delete uses `where: { id, companyId }` — a forged ID can never reach another company's row. Enforced by `requireSession()` / `requireWriter()` from `lib/tenant.ts`. |
+| Permissions follow current membership | Protected requests reload the signed-in user's company and role from the database. A demotion or removal takes effect on the member's next request without waiting for the login token to expire. |
 | Poka-yoke on issue | `issueInvoice` runs the มาตรา 86/4 eight-field check before changing status. Anything missing is returned as a Thai error list; the document stays DRAFT. |
 | Atomic, per-series numbers | `TAX_INVOICE` keeps the legacy `InvoiceCounter` (`INV-`); every other type uses a `DocumentCounter(companyId, series, year)`. Both increment inside a transaction, so concurrent issues never collide and a deleted draft never re-issues its number. |
 | One document engine | All seven types share the `Invoice` table, discriminated by `docType`. `lib/docTypes.ts` is the single source of truth for each type's title, series, status machine, issue gate, and conversion edges. |
@@ -206,7 +207,7 @@ WHT threshold: no withholding when subtotal < 1,000 baht (100,000 satang) per Th
 GitHub Actions runs on every push and pull request to `main`:
 
 1. `npm run lint` — ESLint across the project (zero errors).
-2. `npm run test:coverage` — full 277-test suite + v8 coverage thresholds (gates the PR).
+2. `npm run test:coverage` — full 279-test suite + v8 coverage thresholds (gates the PR).
 3. `npm run build` — type-check + bundle every route.
 
 Node 20 · Ubuntu latest · `npm ci` for reproducible installs.

@@ -19,14 +19,21 @@ export type SessionContext = {
 
 export async function getSessionContext(): Promise<SessionContext | null> {
   const session = await getServerSession(authOptions);
-  const u = session?.user;
-  if (!u?.companyId) return null;
+  const userId = session?.user?.id;
+  if (!userId) return null;
+
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { id: true, companyId: true, role: true, name: true, email: true },
+  });
+  if (!user) return null;
+
   return {
-    userId: u.id,
-    companyId: u.companyId,
-    role: u.role,
-    name: u.name ?? "",
-    email: u.email ?? "",
+    userId: user.id,
+    companyId: user.companyId,
+    role: user.role,
+    name: user.name,
+    email: user.email,
   };
 }
 

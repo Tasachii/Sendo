@@ -21,6 +21,9 @@ let companyId = "";
 let otherCompanyId = "";
 let customerId = "";
 let ownerId = "";
+let otherOwnerId = "";
+let staffId = "";
+let viewerId = "";
 
 type Sess = { role: Role; companyId: string; userId: string };
 let current: Sess | null = null;
@@ -51,6 +54,15 @@ beforeAll(async () => {
   ownerId = (await db.user.create({
     data: { companyId, email: `act-${Date.now()}@t.test`, passwordHash: "x", name: "owner", role: "OWNER" },
   })).id;
+  otherOwnerId = (await db.user.create({
+    data: { companyId: otherCompanyId, email: `act-other-${Date.now()}@t.test`, passwordHash: "x", name: "other owner", role: "OWNER" },
+  })).id;
+  staffId = (await db.user.create({
+    data: { companyId, email: `act-staff-${Date.now()}@t.test`, passwordHash: "x", name: "staff", role: "STAFF" },
+  })).id;
+  viewerId = (await db.user.create({
+    data: { companyId, email: `act-viewer-${Date.now()}@t.test`, passwordHash: "x", name: "viewer", role: "VIEWER" },
+  })).id;
 });
 
 afterAll(async () => {
@@ -60,7 +72,7 @@ afterAll(async () => {
   await db.invoiceCounter.deleteMany({ where: { companyId } });
   await db.customer.deleteMany({ where: { companyId } });
   await db.taxSetting.deleteMany({ where: { companyId } });
-  await db.user.deleteMany({ where: { companyId } });
+  await db.user.deleteMany({ where: { companyId: { in: [companyId, otherCompanyId] } } });
   await db.company.deleteMany({ where: { id: { in: [companyId, otherCompanyId] } } });
   await db.$disconnect();
 });
@@ -118,7 +130,7 @@ describe("setInvoiceStatus — transition whitelist (A3)", () => {
 
   it("returns 'ไม่พบใบแจ้งหนี้' for a cross-tenant invoice id", async () => {
     const inv = await makeInvoice("SENT");
-    asUser({ role: "OWNER", companyId: otherCompanyId, userId: ownerId });
+    asUser({ role: "OWNER", companyId: otherCompanyId, userId: otherOwnerId });
     const res = await setInvoiceStatus(inv.id, "PAID");
     expect(res).toEqual({ ok: false, error: "ไม่พบเอกสาร" });
   });
@@ -142,14 +154,14 @@ describe("deleteInvoice — DRAFT-only + OWNER-only (A7 / A8)", () => {
 
   it("STAFF cannot delete even a DRAFT (requireOwner)", async () => {
     const inv = await makeInvoice("DRAFT");
-    asUser({ role: "STAFF", companyId, userId: ownerId });
+    asUser({ role: "STAFF", companyId, userId: staffId });
     await expect(deleteInvoice(inv.id)).rejects.toThrow("FORBIDDEN_OWNER_ONLY");
     expect(await db.invoice.findUnique({ where: { id: inv.id } })).not.toBeNull();
   });
 
   it("cross-tenant delete is a no-op (not found)", async () => {
     const inv = await makeInvoice("DRAFT");
-    asUser({ role: "OWNER", companyId: otherCompanyId, userId: ownerId });
+    asUser({ role: "OWNER", companyId: otherCompanyId, userId: otherOwnerId });
     const res = await deleteInvoice(inv.id);
     expect(res.ok).toBe(false);
     expect(await db.invoice.findUnique({ where: { id: inv.id } })).not.toBeNull();
@@ -239,7 +251,7 @@ describe("duplicateInvoice", () => {
 
   it("returns 'ไม่พบใบแจ้งหนี้' for a cross-tenant id", async () => {
     const src = await makeInvoice("SENT");
-    asUser({ role: "OWNER", companyId: otherCompanyId, userId: ownerId });
+    asUser({ role: "OWNER", companyId: otherCompanyId, userId: otherOwnerId });
     expect(await duplicateInvoice(src.id)).toEqual({ ok: false, error: "ไม่พบเอกสาร" });
   });
 });
@@ -247,7 +259,7 @@ describe("duplicateInvoice", () => {
 describe("server-action auth boundary", () => {
   it("VIEWER is blocked from every write action", async () => {
     const inv = await makeInvoice("DRAFT");
-    asUser({ role: "VIEWER", companyId, userId: ownerId });
+    asUser({ role: "VIEWER", companyId, userId: viewerId });
     // writer-gated actions reject a VIEWER specifically
     await expect(createInvoice({})).rejects.toThrow("FORBIDDEN_VIEWER_READONLY");
     await expect(issueInvoice(inv.id)).rejects.toThrow("FORBIDDEN_VIEWER_READONLY");
@@ -259,7 +271,7 @@ describe("server-action auth boundary", () => {
 
   it("STAFF may issue/duplicate/status but NOT delete (A8 policy)", async () => {
     const inv = await makeInvoice("DRAFT");
-    asUser({ role: "STAFF", companyId, userId: ownerId });
+    asUser({ role: "STAFF", companyId, userId: staffId });
     // status change allowed for STAFF
     await issueInvoice(inv.id);
     expect((await db.invoice.findUniqueOrThrow({ where: { id: inv.id } })).status).toBe("SENT");

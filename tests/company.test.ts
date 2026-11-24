@@ -10,6 +10,7 @@ import { updateCompanyBranding, updateCompanyProfile } from "../app/actions/comp
 const db = new PrismaClient();
 let companyId = "";
 let ownerId = "";
+let staffId = "";
 
 type Sess = { role: Role; companyId: string; userId: string };
 let current: Sess | null = null;
@@ -30,6 +31,7 @@ beforeAll(async () => {
   const c = await db.company.create({ data: { name: "BRAND-TEST", taxId: "0105550000040", address: "กทม." } });
   companyId = c.id;
   ownerId = (await db.user.create({ data: { companyId, email: `brand-${Date.now()}@t.test`, passwordHash: "x", name: "owner", role: "OWNER" } })).id;
+  staffId = (await db.user.create({ data: { companyId, email: `brand-staff-${Date.now()}@t.test`, passwordHash: "x", name: "staff", role: "STAFF" } })).id;
 });
 
 afterAll(async () => {
@@ -66,7 +68,7 @@ describe("updateCompanyBranding", () => {
   });
 
   it("a STAFF member is rejected (OWNER-only)", async () => {
-    asUser({ role: "STAFF", companyId, userId: ownerId });
+    asUser({ role: "STAFF", companyId, userId: staffId });
     await expect(updateCompanyBranding({ logoDataUrl: TINY_PNG })).rejects.toThrow("FORBIDDEN_OWNER_ONLY");
   });
 });
