@@ -1,6 +1,6 @@
 # Sendo（センド）— Thai logistics invoicing
 
-[![Tests](https://img.shields.io/badge/tests-270_passed-4ade80?style=flat-square)](https://github.com/Tasachii/Sendo/actions)
+[![Tests](https://img.shields.io/badge/tests-277_passed-4ade80?style=flat-square)](https://github.com/Tasachii/Sendo/actions)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 [![CI](https://github.com/Tasachii/Sendo/actions/workflows/ci.yml/badge.svg)](https://github.com/Tasachii/Sendo/actions/workflows/ci.yml)
 
@@ -82,7 +82,7 @@ npm run dev              # start the app on http://localhost:3000
 npm run build            # type-check + bundle every route (same step CI runs)
 npm start                # serve the production build locally
 npm run lint             # ESLint across the project
-npm test                 # Vitest — 270 tests across 27 files
+npm test                 # Vitest — 277 tests across 28 files
 npm run test:coverage    # same suite + v8 coverage report (gates CI thresholds)
 npm run test:watch       # Vitest in watch mode
 npm run db:migrate       # prisma migrate dev — apply new migrations
@@ -161,6 +161,7 @@ Browser ──▶ Next.js 16 (App Router) ──▶ Prisma ──▶ SQLite (pri
 | Branding in the database | Logo / seal / signature are stored as validated base64 data URLs on `Company` (≤300 KB, PNG/JPG) — no filesystem or volume dependency, so PDFs carry branding on any host. |
 | Rates as data, not code | Withholding and VAT rates live in `TaxSetting` (editable in **ตั้งค่าภาษี**). Correcting a rate never requires a deploy. Seeded defaults: ขนส่งล้วน 1% · ขนส่งพ่วงบริการ 3% · ค่าเช่า 5% · ค่าโฆษณา 2%. |
 | WHT rate on 50 ทวิ derived from stored amounts | `whtRatePct` is computed from the stored satang values at PDF time — a rate edit after issue cannot change the printed rate on a legal certificate already issued. |
+| Issued PDF details stay fixed | Issuing stores the seller, customer, branding, and WHT income label used by the invoice and 50 ทวิ PDFs. Later profile edits affect new documents only; older rows without a snapshot fall back to live data. |
 | Bundled Thai font | Sarabun ships in the repo under `public/fonts`. PDFs render Thai correctly with no network call, and align with the ETDA e-Tax reference font (THSarabun). |
 | SQLite for local dev | Single-file database, no external service. Migrate to PostgreSQL for production (see Roadmap). |
 | State machine for invoice status | `DRAFT→SENT` (issue only) · `SENT→{PAID,OVERDUE}` · `OVERDUE→{PAID,SENT}` · `PAID→OVERDUE`. A legally-issued document can never be reverted to DRAFT. |
@@ -205,7 +206,7 @@ WHT threshold: no withholding when subtotal < 1,000 baht (100,000 satang) per Th
 GitHub Actions runs on every push and pull request to `main`:
 
 1. `npm run lint` — ESLint across the project (zero errors).
-2. `npm run test:coverage` — full 270-test suite + v8 coverage thresholds (gates the PR).
+2. `npm run test:coverage` — full 277-test suite + v8 coverage thresholds (gates the PR).
 3. `npm run build` — type-check + bundle every route.
 
 Node 20 · Ubuntu latest · `npm ci` for reproducible installs.

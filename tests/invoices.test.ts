@@ -168,6 +168,41 @@ describe("issueInvoice (A9 — stamp issueDate at issue)", () => {
     expect(after.issueDate.getFullYear()).toBe(new Date().getFullYear()); // not the stale 2020 date
   });
 
+  it("freezes the current company, customer, branding, and income label", async () => {
+    const inv = await makeInvoice("DRAFT");
+    await db.company.update({
+      where: { id: companyId },
+      data: { logoDataUrl: "data:image/png;base64,original-logo" },
+    });
+    await issueInvoice(inv.id);
+    const issued = await db.invoice.findUniqueOrThrow({ where: { id: inv.id } });
+    const snapshot = JSON.parse(issued.issuedDocumentSnapshot!) as {
+      company: { name: string; address: string; logoDataUrl: string | null };
+      customer: { name: string; address: string | null };
+      incomeLabel: string;
+    };
+
+    await db.company.update({ where: { id: companyId }, data: { name: "EDITED SELLER", address: "EDITED", logoDataUrl: null } });
+    await db.customer.update({ where: { id: customerId }, data: { name: "EDITED BUYER", address: "EDITED" } });
+    await db.taxSetting.update({
+      where: { companyId_jobType: { companyId, jobType: "transport_service" } },
+      data: { label: "EDITED INCOME" },
+    });
+
+    expect(snapshot).toMatchObject({
+      company: { name: "ACT-TEST ขนส่ง", address: "กทม.", logoDataUrl: "data:image/png;base64,original-logo" },
+      customer: { name: "ลูกค้า ACT", address: "เชียงใหม่" },
+      incomeLabel: "ขนส่งพ่วงบริการ",
+    });
+
+    await db.company.update({ where: { id: companyId }, data: { name: "ACT-TEST ขนส่ง", address: "กทม.", logoDataUrl: null } });
+    await db.customer.update({ where: { id: customerId }, data: { name: "ลูกค้า ACT", address: "เชียงใหม่" } });
+    await db.taxSetting.update({
+      where: { companyId_jobType: { companyId, jobType: "transport_service" } },
+      data: { label: "ขนส่งพ่วงบริการ" },
+    });
+  });
+
   it("re-issuing an already-SENT invoice is a no-op on the date (status guard)", async () => {
     const inv = await makeInvoice("DRAFT");
     await issueInvoice(inv.id);

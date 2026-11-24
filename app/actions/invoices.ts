@@ -10,6 +10,7 @@ import { docMeta, allowedTransitions, conversionTargets, effectiveTaxSetting, ca
 import { writeAudit } from "@/lib/audit";
 import { formatBaht } from "@/lib/money";
 import { calcTax } from "@/lib/tax";
+import { createIssuedDocumentSnapshot } from "@/lib/issuedDocument";
 
 export type InvoiceActionResult =
   | { ok: true; id: string }
@@ -109,36 +110,57 @@ export const createInvoice = createDocument;
 /** Issue: run the type's poka-yoke gate, then move DRAFT -> SENT and stamp the issue date. */
 export async function issueInvoice(id: string): Promise<InvoiceActionResult> {
   const ctx = await requireWriter();
-  const invoice = await db.invoice.findFirst({
-    where: { id, companyId: ctx.companyId },
-    include: { customer: true, items: true, company: true },
-  });
-  if (!invoice) return { ok: false, error: "ไม่พบเอกสาร" };
-  const meta = docMeta(invoice.docType);
+  const outcome = await db.$transaction(async (tx) => {
+    const current = await tx.invoice.findFirst({
+      where: { id, companyId: ctx.companyId },
+      include: { company: true, customer: true, items: true },
+    });
+    if (!current) return { kind: "not-found" as const };
+    if (current.status !== "DRAFT") return { kind: "already-issued" as const };
+    const meta = docMeta(current.docType);
+    const missing = validateForIssue({
+      docType: current.docType,
+      company: current.company,
+      customer: current.customer,
+      invoice: {
+        number: current.number,
+        issueDate: current.issueDate,
+        payeeName: current.payeeName,
+        reason: current.reason,
+        refDocNumber: current.refDocNumber,
+        sourceId: current.sourceId,
+      },
+      items: current.items,
+    });
+    if (missing.length > 0) return { kind: "invalid" as const, short: meta.short, missing };
 
-  const missing = validateForIssue({
-    docType: invoice.docType,
-    company: invoice.company,
-    customer: invoice.customer,
-    invoice: { number: invoice.number, issueDate: invoice.issueDate, payeeName: invoice.payeeName, reason: invoice.reason, refDocNumber: invoice.refDocNumber, sourceId: invoice.sourceId },
-    items: invoice.items,
-  });
-  if (missing.length > 0) {
-    return { ok: false, error: `ออก${meta.short}ไม่ได้: ข้อมูลไม่ครบ`, missing };
-  }
-
-  // Stamp the legal issue moment at issue time, not the draft date. The status: "DRAFT"
-  // guard keeps this a no-op if the document was already issued.
-  const issued = await db.$transaction(async (tx) => {
+    const setting = await tx.taxSetting.findFirst({
+      where: { companyId: ctx.companyId, jobType: current.jobType },
+      select: { label: true },
+    });
     const result = await tx.invoice.updateMany({
       where: { id, companyId: ctx.companyId, status: "DRAFT" },
-      data: { status: "SENT", issueDate: new Date() },
+      data: {
+        status: "SENT",
+        issueDate: new Date(),
+        issuedDocumentSnapshot: createIssuedDocumentSnapshot(
+          current.company,
+          current.customer,
+          setting?.label ?? "ค่าขนส่ง/บริการ",
+        ),
+      },
     });
-    if (result.count === 0) return false;
-    await writeAudit(tx, ctx, "DOC_ISSUE", "Invoice", id, `${meta.issueVerb} ${invoice.number}`);
-    return true;
+    if (result.count === 0) return { kind: "already-issued" as const };
+    await writeAudit(tx, ctx, "DOC_ISSUE", "Invoice", id, `${meta.issueVerb} ${current.number}`);
+    return { kind: "issued" as const };
   });
-  if (!issued) return { ok: false, error: "เอกสารถูกออกไปแล้วหรือสถานะเปลี่ยนแปลง กรุณาโหลดใหม่" };
+  if (outcome.kind === "not-found") return { ok: false, error: "ไม่พบเอกสาร" };
+  if (outcome.kind === "invalid") {
+    return { ok: false, error: `ออก${outcome.short}ไม่ได้: ข้อมูลไม่ครบ`, missing: outcome.missing };
+  }
+  if (outcome.kind === "already-issued") {
+    return { ok: false, error: "เอกสารถูกออกไปแล้วหรือสถานะเปลี่ยนแปลง กรุณาโหลดใหม่" };
+  }
   revalidatePath("/documents");
   revalidatePath("/invoices");
   revalidatePath(`/invoices/${id}`);

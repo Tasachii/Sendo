@@ -5,6 +5,7 @@ import { registerThaiFont } from "@/components/pdf/fonts";
 import { InvoicePDF } from "@/components/pdf/InvoicePDF";
 import { docMeta } from "@/lib/docTypes";
 import { legalDate } from "@/lib/legalDate";
+import { resolveIssuedDocument } from "@/lib/issuedDocument";
 
 const legalDateOrNull = (d: Date | null | undefined) => (d ? legalDate(d) : null);
 
@@ -25,6 +26,16 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   if (inv.status === "DRAFT") return new Response("ต้องออกใบกำกับภาษีก่อนจึงจะดาวน์โหลดได้", { status: 400 });
 
   const meta = docMeta(inv.docType);
+  let issued: ReturnType<typeof resolveIssuedDocument>;
+  try {
+    issued = resolveIssuedDocument(inv.issuedDocumentSnapshot, {
+      company: inv.company,
+      customer: inv.customer,
+      incomeLabel: "ค่าขนส่ง/บริการ",
+    });
+  } catch {
+    return new Response("ข้อมูล snapshot ของเอกสารที่ออกแล้วไม่ถูกต้อง", { status: 500 });
+  }
   const secondaryValue =
     meta.dateField === "dueDate" ? legalDateOrNull(inv.dueDate)
     : meta.dateField === "validUntil" ? legalDateOrNull(inv.validUntil)
@@ -40,9 +51,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         number: inv.number,
         issueDate: legalDate(inv.issueDate),
         secondaryDate: secondaryValue ? { label: meta.dateLabel, value: secondaryValue } : null,
-        company: { name: inv.company.name, taxId: inv.company.taxId, address: inv.company.address, branch: inv.company.branch },
-        customer: { name: inv.customer.name, taxId: inv.customer.taxId, address: inv.customer.address, branch: inv.customer.branch },
-        branding: { logoDataUrl: inv.company.logoDataUrl, sealDataUrl: inv.company.sealDataUrl, signatureDataUrl: inv.company.signatureDataUrl },
+        company: { name: issued.company.name, taxId: issued.company.taxId, address: issued.company.address, branch: issued.company.branch },
+        customer: issued.customer,
+        branding: {
+          logoDataUrl: issued.company.logoDataUrl,
+          sealDataUrl: issued.company.sealDataUrl,
+          signatureDataUrl: issued.company.signatureDataUrl,
+        },
         items: inv.items.map((it) => ({ description: it.description, qty: it.qty, unitPriceSatang: it.unitPriceSatang, discountSatang: it.discountSatang, lineTotalSatang: it.lineTotalSatang })),
         docDiscountSatang: inv.docDiscountSatang,
         subtotalSatang: inv.subtotalSatang,

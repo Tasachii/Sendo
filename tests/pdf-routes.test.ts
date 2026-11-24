@@ -50,7 +50,16 @@ function baseInvoice(overrides: Record<string, unknown> = {}) {
     netSatang: 2_080_000,
     trackingNo: "TH123",
     note: null,
-    company: { name: "ACME ขนส่ง", taxId: "0105550000010", address: "กทม.", branch: "สำนักงานใหญ่" },
+    issuedDocumentSnapshot: null,
+    company: {
+      name: "ACME ขนส่ง",
+      taxId: "0105550000010",
+      address: "กทม.",
+      branch: "สำนักงานใหญ่",
+      logoDataUrl: null,
+      sealDataUrl: null,
+      signatureDataUrl: null,
+    },
     customer: { name: "ลูกค้า ก", taxId: "0105550000012", address: "เชียงใหม่", branch: "สำนักงานใหญ่" },
     items: [{ description: "ค่าขนส่ง", qty: 1, unitPriceSatang: 2_000_000, lineTotalSatang: 2_000_000 }],
     ...overrides,
@@ -119,6 +128,60 @@ describe("GET /api/invoices/[id]/pdf", () => {
     });
   });
 
+  it("renders the issue-time parties and branding after live profiles change", async () => {
+    getSessionContext.mockResolvedValue({ companyId: "c1" });
+    dbInvoiceFindFirst.mockResolvedValue(baseInvoice({
+      issuedDocumentSnapshot: JSON.stringify({
+        company: {
+          name: "Original Seller",
+          taxId: "0105550000010",
+          address: "Original Seller Address",
+          branch: "Original Branch",
+          logoDataUrl: "data:image/png;base64,original-logo",
+          sealDataUrl: null,
+          signatureDataUrl: null,
+        },
+        customer: {
+          name: "Original Buyer",
+          taxId: "0105550000012",
+          address: "Original Buyer Address",
+          branch: "Original Buyer Branch",
+        },
+        incomeLabel: "Original Income",
+      }),
+      company: {
+        name: "Edited Seller", taxId: "0105559999999", address: "Edited Seller Address", branch: "Edited Branch",
+        logoDataUrl: "data:image/png;base64,edited-logo", sealDataUrl: null, signatureDataUrl: null,
+      },
+      customer: { name: "Edited Buyer", taxId: "0105558888888", address: "Edited Buyer Address", branch: "Edited Branch" },
+    }));
+    await pdfGET(req, params("abc"));
+    expect(renderedData()).toMatchObject({
+      company: { name: "Original Seller", address: "Original Seller Address" },
+      customer: { name: "Original Buyer", address: "Original Buyer Address" },
+      branding: { logoDataUrl: "data:image/png;base64,original-logo" },
+    });
+  });
+
+  it("falls back to live parties for legacy issued rows with no snapshot", async () => {
+    getSessionContext.mockResolvedValue({ companyId: "c1" });
+    dbInvoiceFindFirst.mockResolvedValue(baseInvoice({ issuedDocumentSnapshot: null }));
+    await pdfGET(req, params("abc"));
+    expect(renderedData()).toMatchObject({
+      company: { name: "ACME ขนส่ง", address: "กทม." },
+      customer: { name: "ลูกค้า ก", address: "เชียงใหม่" },
+    });
+  });
+
+  it("fails clearly instead of using edited live data when a saved snapshot is corrupt", async () => {
+    getSessionContext.mockResolvedValue({ companyId: "c1" });
+    dbInvoiceFindFirst.mockResolvedValue(baseInvoice({ issuedDocumentSnapshot: "not-json" }));
+    const res = await pdfGET(req, params("abc"));
+    expect(res.status).toBe(500);
+    expect(await res.text()).toContain("snapshot");
+    expect(renderToBuffer).not.toHaveBeenCalled();
+  });
+
   it("uses the Asia/Bangkok legal date at a UTC month boundary", async () => {
     getSessionContext.mockResolvedValue({ companyId: "c1" });
     dbInvoiceFindFirst.mockResolvedValue(baseInvoice({
@@ -183,6 +246,41 @@ describe("GET /api/invoices/[id]/wht", () => {
       baseSatang: 2_000_000,
       whtSatang: 60_000,
     });
+  });
+
+  it("renders issue-time parties and income label after live records change", async () => {
+    getSessionContext.mockResolvedValue({ companyId: "c1" });
+    dbInvoiceFindFirst.mockResolvedValue(baseInvoice({
+      issuedDocumentSnapshot: JSON.stringify({
+        company: {
+          name: "Original Payee", taxId: "0105550000010", address: "Original Payee Address", branch: "HQ",
+          logoDataUrl: null, sealDataUrl: null, signatureDataUrl: null,
+        },
+        customer: { name: "Original Withholder", taxId: "0105550000012", address: "Original Withholder Address", branch: "HQ" },
+        incomeLabel: "Original Freight Income",
+      }),
+      company: {
+        name: "Edited Payee", taxId: "0105559999999", address: "Edited Payee Address", branch: "HQ",
+        logoDataUrl: null, sealDataUrl: null, signatureDataUrl: null,
+      },
+      customer: { name: "Edited Withholder", taxId: "0105558888888", address: "Edited Withholder Address", branch: "HQ" },
+    }));
+    dbTaxSettingFindFirst.mockResolvedValue({ label: "Edited Income" });
+    await whtGET(req, params("abc"));
+    expect(renderedData()).toMatchObject({
+      withholder: { name: "Original Withholder", address: "Original Withholder Address" },
+      payee: { name: "Original Payee", address: "Original Payee Address" },
+      incomeLabel: "Original Freight Income",
+    });
+  });
+
+  it("rejects a corrupt saved snapshot on the WHT route", async () => {
+    getSessionContext.mockResolvedValue({ companyId: "c1" });
+    dbInvoiceFindFirst.mockResolvedValue(baseInvoice({ issuedDocumentSnapshot: "{}" }));
+    dbTaxSettingFindFirst.mockResolvedValue({ label: "Edited Income" });
+    const res = await whtGET(req, params("abc"));
+    expect(res.status).toBe(500);
+    expect(renderToBuffer).not.toHaveBeenCalled();
   });
 
   it("derives whtRatePct from stored whtSatang/subtotalSatang (A13)", async () => {
