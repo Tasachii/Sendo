@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "test:browser": "node scripts/test-conversion-browser.mjs",
     "test:watch": "vitest",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",

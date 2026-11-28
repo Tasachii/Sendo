@@ -6,14 +6,20 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     env:
       NEXTAUTH_SECRET: ci-test-secret
       NEXTAUTH_URL: http://localhost:3000
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -22,4 +28,5 @@ jobs:
       - run: npx prisma migrate deploy   # create the local SQLite db for tests
       - run: npm run lint                # ESLint must pass with zero errors
       - run: npm run test:coverage       # full suite + v8 coverage thresholds (gates the PR)
-      - run: npm run build               # type-checks + bundles every route
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser         # required production build + real browser regression

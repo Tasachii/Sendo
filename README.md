@@ -79,11 +79,12 @@ npm run seed                   :: load demo data into an empty database
 
 ```bash
 npm run dev              # start the app on http://localhost:3000
-npm run build            # type-check + bundle every route (same step CI runs)
+npm run build            # type-check + bundle every route
 npm start                # serve the production build locally
 npm run lint             # ESLint across the project
-npm test                 # Vitest — 280 tests across 29 files
+npm test                 # Vitest unit and integration tests
 npm run test:coverage    # same suite + v8 coverage report (gates CI thresholds)
+npm run test:browser     # production browser regression (see setup below)
 npm run test:watch       # Vitest in watch mode
 npm run db:migrate       # prisma migrate dev — apply new migrations
 npm run db:push          # prisma db push — sync schema without a migration file
@@ -209,10 +210,20 @@ WHT threshold: no withholding when subtotal < 1,000 baht (100,000 satang) per Th
 GitHub Actions runs on every push and pull request to `main`:
 
 1. `npm run lint` — ESLint across the project (zero errors).
-2. `npm run test:coverage` — full 280-test suite + v8 coverage thresholds (gates the PR).
-3. `npm run build` — type-check + bundle every route.
+2. `npm run test:coverage` — full Vitest suite + v8 coverage thresholds (gates the PR).
+3. `npm run test:browser` — required Playwright Chromium regression, including a production Next.js build.
 
 Node 20 · Ubuntu latest · `npm ci` for reproducible installs.
+
+### Production browser regression
+
+After installing the repository dependencies, install Playwright's Chromium once with `npx playwright install chromium` (on Linux, use `npx playwright install --with-deps chromium` if system dependencies are missing). Run the same check as CI on macOS or Linux:
+
+```bash
+npm run test:browser
+```
+
+If using an existing Google Chrome installation, the runner also accepts `npm run test:browser -- --chrome`. The test builds and starts a fresh production app on a temporary loopback port, applies migrations to a disposable SQLite database and signs in with generated test credentials. It intentionally drops a committed quotation → invoice response, reloads the same tab, retries to the original draft and verifies exactly one document, audit, receipt and number. A separate conversion must create a second draft. It cleans up the temporary workspace and server. Your local `.env`, `.next` and `prisma/dev.db` are excluded; no production credentials or existing server are required. The usual Next.js build needs access to Google Fonts.
 
 ---
 
@@ -227,7 +238,7 @@ Node 20 · Ubuntu latest · `npm ci` for reproducible installs.
 - [x] **Branding** — company logo / seal / signature rendered on every document PDF
 - [x] **e-Tax export** — Invoice → ขมธอ.3-2560 XML, with a pluggable PAdES + PDF/A-3 signer (`pdf-lib` + `@signpdf`); supply a real certificate via `ETAX_PFX_BASE64` to emit signed files. Validate against ETDA's XSD with the company's certificate before live filing.
 - [ ] Carrier API integrations — live endpoints (`lib/carriers.ts` adapter defined, throws until implemented)
-- [ ] Production hardening — PostgreSQL, Playwright e2e, login rate-limiting, e-Withholding 1% reduced-rate
+- [ ] Production hardening — PostgreSQL, broader Playwright e2e coverage, login rate-limiting, e-Withholding 1% reduced-rate
 
 ---
 
