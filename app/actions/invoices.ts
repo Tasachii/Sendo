@@ -1,5 +1,6 @@
 "use server";
 
+import { createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { Prisma, type DocType, type InvoiceStatus } from "@prisma/client";
 import { db, requireWriter, requireOwner } from "@/lib/tenant";
@@ -14,7 +15,7 @@ import { createIssuedDocumentSnapshot } from "@/lib/issuedDocument";
 
 export type InvoiceActionResult =
   | { ok: true; id: string }
-  | { ok: false; error: string; missing?: string[] };
+  | { ok: false; error: string; missing?: string[]; retryable?: true };
 
 /** Parse an optional yyyy-mm-dd string into a Date (or null). */
 function asDate(v: string | undefined | null): Date | null {
@@ -252,34 +253,54 @@ export async function duplicateInvoice(id: string): Promise<InvoiceActionResult>
  */
 export async function convertDocument(id: string, target: DocType, rawDetails?: unknown): Promise<InvoiceActionResult> {
   const ctx = await requireWriter();
+  if (typeof id !== "string" || !id.trim()) return { ok: false, error: "ไม่พบเอกสาร" };
+  const details = typeof rawDetails === "object" && rawDetails !== null ? rawDetails : {};
   const parsed = documentConversionSchema.safeParse({
     target,
-    reason: typeof rawDetails === "object" && rawDetails !== null && "reason" in rawDetails
-      ? (rawDetails as { reason?: unknown }).reason
-      : undefined,
+    reason: "reason" in details ? details.reason : undefined,
+    intentKey: "intentKey" in details ? details.intentKey : undefined,
   });
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
   const reason = parsed.data.reason?.trim() || null;
-  const src = await db.invoice.findFirst({
-    where: { id, companyId: ctx.companyId },
-    include: { items: true },
-  });
-  if (!src) return { ok: false, error: "ไม่พบเอกสาร" };
+  const intent = parsed.data.intentKey && {
+    companyId: ctx.companyId, actorId: ctx.userId, key: parsed.data.intentKey,
+  };
+  const payloadHash = createHash("sha256").update(JSON.stringify([id, target, reason])).digest("hex");
 
-  if (!conversionTargets(src.docType).includes(target)) {
-    return { ok: false, error: `แปลง ${docMeta(src.docType).short} เป็น ${docMeta(target).short} ไม่ได้` };
-  }
-  if (!canConvertStatus(src.status)) {
-    return { ok: false, error: `ไม่สามารถแปลงเอกสารสถานะ ${src.status} ได้` };
-  }
-
-  const targetMeta = docMeta(target);
-  const setting = await db.taxSetting.findFirst({ where: { companyId: ctx.companyId, jobType: src.jobType } });
-  if (!setting) return { ok: false, error: "ไม่พบการตั้งค่าภาษีของประเภทงานต้นทาง" };
-  const tax = calcTax({ subtotalSatang: src.subtotalSatang, ...effectiveTaxSetting(target, setting) });
+  let result: InvoiceActionResult;
   for (let attempt = 0; attempt < 5; attempt++) {
     try {
-      const out = await db.$transaction(async (tx) => {
+      result = await db.$transaction(async (tx): Promise<InvoiceActionResult> => {
+        // Prisma's SQLite connector uses BEGIN IMMEDIATE. Concurrent writers see
+        // the committed receipt before they can validate or allocate another number.
+        if (intent) {
+          const prior = await tx.conversionIntent.findUnique({ where: { companyId_actorId_key: intent } });
+          if (prior) {
+            if (prior.payloadHash !== payloadHash) return { ok: false, error: "รหัสคำขอนี้ใช้กับการแปลงอื่นแล้ว" };
+            const document = await tx.invoice.findFirst({
+              where: { id: prior.documentId, companyId: ctx.companyId }, select: { id: true },
+            });
+            return document ? { ok: true, id: document.id } : { ok: false, error: "เอกสารที่แปลงไว้ถูกลบแล้ว" };
+          }
+        }
+
+        const src = await tx.invoice.findFirst({
+          where: { id, companyId: ctx.companyId },
+          include: { items: true },
+        });
+        if (!src) return { ok: false, error: "ไม่พบเอกสาร" };
+
+        if (!conversionTargets(src.docType).includes(target)) {
+          return { ok: false, error: `แปลง ${docMeta(src.docType).short} เป็น ${docMeta(target).short} ไม่ได้` };
+        }
+        if (!canConvertStatus(src.status)) {
+          return { ok: false, error: `ไม่สามารถแปลงเอกสารสถานะ ${src.status} ได้` };
+        }
+
+        const targetMeta = docMeta(target);
+        const setting = await tx.taxSetting.findFirst({ where: { companyId: ctx.companyId, jobType: src.jobType } });
+        if (!setting) return { ok: false, error: "ไม่พบการตั้งค่าภาษีของประเภทงานต้นทาง" };
+        const tax = calcTax({ subtotalSatang: src.subtotalSatang, ...effectiveTaxSetting(target, setting) });
         const number = await nextDocumentNumber(tx, ctx.companyId, target);
         const created = await tx.invoice.create({
           data: {
@@ -306,18 +327,21 @@ export async function convertDocument(id: string, target: DocType, rawDetails?: 
           },
         });
         await writeAudit(tx, ctx, "DOC_CONVERT", "Invoice", created.id, `แปลง ${src.number} → ${targetMeta.short} ${created.number}`);
-        return created;
+        if (intent) await tx.conversionIntent.create({ data: { ...intent, payloadHash, documentId: created.id } });
+        return { ok: true, id: created.id };
       });
+    } catch (e) {
+      if (!(e instanceof Prisma.PrismaClientKnownRequestError) || !["P2002", "P1008", "P2034"].includes(e.code)) throw e;
+      continue;
+    }
+    if (result.ok) {
       revalidatePath("/documents");
       revalidatePath("/invoices");
       revalidatePath(`/invoices/${id}`);
-      return { ok: true, id: out.id };
-    } catch (e) {
-      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") continue;
-      throw e;
     }
+    return result;
   }
-  return { ok: false, error: "แปลงเอกสารไม่สำเร็จ กรุณาลองใหม่" };
+  return { ok: false, error: "แปลงเอกสารไม่สำเร็จ กรุณาลองใหม่", retryable: true };
 }
 
 /**

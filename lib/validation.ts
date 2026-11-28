@@ -157,7 +157,9 @@ export type DocumentDraftInput = z.infer<typeof documentDraftSchema>;
 export const invoiceDraftSchema = documentDraftSchema;
 export type InvoiceDraftInput = DocumentDraftInput;
 
+const conversionKey = z.uuid("รหัสคำขอแปลงเอกสารไม่ถูกต้อง");
 export const documentConversionSchema = z.object({
+  intentKey: conversionKey.optional(),
   target: docTypeSchema,
   reason: optStr,
 }).superRefine((data, ctx) => {
@@ -165,3 +167,7 @@ export const documentConversionSchema = z.object({
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["reason"], message: "กรุณาระบุเหตุผลของใบลดหนี้/ใบเพิ่มหนี้" });
   }
 });
+
+// Tab storage represents a submitted intent. Only legacy server callers may omit the key.
+export const pendingConversionSchema = documentConversionSchema.safeExtend({ intentKey: conversionKey }).strict();
+export type PendingConversion = z.infer<typeof pendingConversionSchema>;

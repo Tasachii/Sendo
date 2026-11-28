@@ -37,7 +37,7 @@ export default function LoginPage() {
           <p className="mt-1 text-xs tracking-[0.3em] text-faint">センド</p>
           <p className="mt-4 text-sm text-muted">ส่งบิล ถูกต้องตั้งแต่แรก</p>
         </div>
-        <form onSubmit={onSubmit} className="space-y-4 rounded-xl bg-surface p-6 shadow-sm ring-1 ring-line">
+        <form method="post" onSubmit={onSubmit} className="space-y-4 rounded-xl bg-surface p-6 shadow-sm ring-1 ring-line">
           <h2 className="text-lg font-semibold">เข้าสู่ระบบ</h2>
           <div>
             <label className="mb-1 block text-sm text-muted">อีเมล</label>

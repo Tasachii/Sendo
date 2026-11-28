@@ -44,7 +44,12 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
           </div>
           <div className="mt-1"><StatusBadge status={inv.status} /></div>
         </div>
-        <InvoiceActions id={inv.id} docType={inv.docType} status={inv.status} hasWht={inv.whtSatang > 0} canWrite={ctx.role !== "VIEWER"} />
+        <InvoiceActions
+          key={JSON.stringify([ctx.companyId, ctx.userId, inv.id])}
+          id={inv.id} companyId={ctx.companyId} actorId={ctx.userId}
+          docType={inv.docType} status={inv.status}
+          hasWht={inv.whtSatang > 0} canWrite={ctx.role !== "VIEWER"}
+        />
       </div>
 
       {/* conversion lineage */}

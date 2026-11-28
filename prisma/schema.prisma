@@ -60,6 +60,7 @@ model Company {
   counters    InvoiceCounter[]
   docCounters DocumentCounter[]
   auditLogs   AuditLog[]
+  conversionIntents ConversionIntent[]
 }
 
 // Atomic per-company-per-year sequence for the TAX_INVOICE (INV-) series — race-safe,
@@ -85,6 +86,20 @@ model DocumentCounter {
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@id([companyId, series, year])
+}
+
+// A durable receipt for one acknowledged conversion. Keep the result ID even if
+// its draft is later deleted, so an old request can never recreate it.
+model ConversionIntent {
+  companyId   String
+  actorId     String
+  key         String
+  payloadHash String
+  documentId  String
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@id([companyId, actorId, key])
 }
 
 // Who did what — append-only audit trail, scoped per tenant.
